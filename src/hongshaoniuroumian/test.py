@@ -2,9 +2,11 @@ from drain3 import TemplateMiner
 from drain3.template_miner_config import TemplateMinerConfig
 from drain3.file_persistence import FilePersistence
 from pathlib import Path
+from torch.utils.data import DataLoader
 
 from ingest import get_logs, preprocess_ssh, SSH_PREFX
 from drain import build_dataset, get_templates, get_unique_template_words
+from dataset import NextLogDataset
 
 import pprint
 
@@ -20,10 +22,14 @@ dataset = build_dataset(
     preprocesser=preprocess_ssh
 )
 
-for i in range(5):
-    print(f"Log {i}:")
-    pprint.pprint(dataset[i])
+# for i in range(5):
+#     print(f"Log {i}:")
+#     pprint.pprint(dataset[i])
 
-bruh1 = set(get_unique_template_words(miner))
-bruh2 = set(get_unique_template_words(miner, prefix=SSH_PREFX))
-print(bruh2-bruh1)
+# bruh1 = set(get_unique_template_words(miner))
+# bruh2 = set(get_unique_template_words(miner, prefix=SSH_PREFX))
+# print(bruh2-bruh1)
+
+torch_dataset = NextLogDataset(dataset)
+dataloader = DataLoader(torch_dataset, batch_size=1, shuffle=True)
+print(next(iter(dataloader)))
