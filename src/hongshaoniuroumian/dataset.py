@@ -3,9 +3,8 @@ from torch.utils.data import Dataset, Subset
 
 from parameter import Parameter2Vec
 
-WINDOW_SIZE = 20
+WINDOW_SIZE = 100
 
-#TODO: change to sliding window
 class LogDataset(Dataset):
     def __init__(
         self,
@@ -15,16 +14,16 @@ class LogDataset(Dataset):
         self.template_vectors = torch.stack(
             [template_vectors[log["template_id"]] for log in logs],
         )
-        parameter2vec = Parameter2Vec()
+        parameter2Vec = Parameter2Vec()
         self.parameter_vectors = torch.stack(
-            [parameter2vec.encode_parameter(log["parameters"]) for log in logs],
+            [parameter2Vec.encode_parameter(log["parameters"]) for log in logs]
         )
 
     def __len__(self):
-        return max(0, (len(self.template_vectors) - 1) // WINDOW_SIZE)
+        return max(0, len(self.template_vectors) - WINDOW_SIZE)
 
     def __getitem__(self, index):
-        start = index * WINDOW_SIZE
+        start = index
         end = start + WINDOW_SIZE
         return (
             self.template_vectors[start:end],
@@ -48,9 +47,10 @@ def split_dataset(
     total = len(dataset)
     train_end = int(total * train_fraction)
     validation_end = train_end + int(total * validation_fraction)
+    indices = torch.randperm(total).tolist()
 
     return (
-        Subset(dataset, range(0, train_end)),
-        Subset(dataset, range(train_end, validation_end)),
-        Subset(dataset, range(validation_end, total)),
+        Subset(dataset, indices[:train_end]),
+        Subset(dataset, indices[train_end:validation_end]),
+        Subset(dataset, indices[validation_end:]),
     )

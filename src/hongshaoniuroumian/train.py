@@ -36,6 +36,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 miner_persistence_path = "../../data/templateminerstate"
 checkpoint_path = Path("../../data/best_model.pt")
+final_model_path = Path("../../data/final_model.pt")
 
 # technically, this can stay in dataset.py, as thats where input and output vectors are vectorized
 # however, keepinig it here for now for debugging
@@ -114,18 +115,18 @@ def average_loss(dataloader, max_batches=None):
             if max_batches is not None and batch_index == max_batches:
                 break
 
-            input_template_vectors, input_parameter_features = (
+            input_template_vectors, input_parameter_vectors = (
                 tensor.to(device, non_blocking=True)
                 for tensor in inputs
             )
-            target_template_vectors, target_parameter_features = (
+            target_template_vectors, target_parameter_vectors = (
                 tensor.to(device, non_blocking=True)
                 for tensor in targets
             )
 
             predicted_template_vectors, predicted_parameter_vectors = model(
                 input_template_vectors,
-                input_parameter_features,
+                input_parameter_vectors,
             )
             cosine_target = torch.ones(
                 predicted_template_vectors.shape[0],
@@ -139,7 +140,7 @@ def average_loss(dataloader, max_batches=None):
             )
             parameter_loss = loss_fn(
                 predicted_parameter_vectors,
-                target_parameter_features,
+                target_parameter_vectors,
                 cosine_target,
             )
             total += (template_loss + PARAMETER_LOSS_WEIGHT * parameter_loss).item()
@@ -185,11 +186,11 @@ for epoch in range(EPOCHS):
     for i, data in enumerate(train_dataloader):
         inputs, targets = data
 
-        input_template_vectors, input_parameter_features = (
+        input_template_vectors, input_parameter_vectors = (
             tensor.to(device, non_blocking=True)
             for tensor in inputs
         )
-        target_template_vectors, target_parameter_features = (
+        target_template_vectors, target_parameter_vectors = (
             tensor.to(device, non_blocking=True)
             for tensor in targets
         )
@@ -198,7 +199,7 @@ for epoch in range(EPOCHS):
 
         predicted_template_vector, predicted_parameter_vector = model(
             input_template_vectors,
-            input_parameter_features,
+            input_parameter_vectors,
         )
 
         cosine_target = torch.ones(
@@ -213,7 +214,7 @@ for epoch in range(EPOCHS):
         )
         parameter_loss = loss_fn(
             predicted_parameter_vector,
-            target_parameter_features,
+            target_parameter_vectors,
             cosine_target,
         )
         loss = template_loss + PARAMETER_LOSS_WEIGHT * parameter_loss
@@ -266,6 +267,7 @@ plt.ylabel("Loss")
 plt.legend()
 plt.show()
 
+torch.save(model.state_dict(), final_model_path)
 model.load_state_dict(torch.load(checkpoint_path, weights_only=True, map_location=device))
 test_loss = average_loss(test_dataloader)
 print(f"Test loss: {test_loss:.4f}")
