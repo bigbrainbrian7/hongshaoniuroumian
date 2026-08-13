@@ -3,67 +3,75 @@ from pathlib import Path
 from typing import Callable
 
 from drain3 import TemplateMiner
-from drain3.template_miner_config import TemplateMinerConfig
 
-# TODO: should probably make a class instead
-# miner, prefix, all of that seams stateful
+class Drain:
+    def __init__(
+        self,
+        miner: TemplateMiner,
+        persistence_path: str,
+        preprocesser: Callable[[str], dict] = lambda s: {
+            "message": s,
+            "parameters": [],
+        },
+        postprocesser: Callable[[str], str] = lambda s: s,
+    ) -> None:
+        self.miner = miner
+        self.persistence_path = Path(persistence_path)
+        self.preprocesser = preprocesser
+        self.postprocessor = postprocesser
+        self.templates: dict[int, str]
 
-def build_miner(lines: Iterable[str], miner: TemplateMiner) -> None:
-    for line in lines:
-        miner.add_log_message(line)
 
+    def build_miner(self, lines: Iterable[str]) -> None:
+        for line in lines:
+            self.miner.add_log_message(line)
 
-def get_templates(miner: TemplateMiner, prefix: str = "") -> dict[int, str]:
-    return {
-        int(cluster.cluster_id): prefix + cluster.get_template()
-        for cluster in miner.drain.clusters
-    }
+    def get_templates(self) -> dict[int, str]:
+        return self.templates
 
-def get_unique_template_words(miner: TemplateMiner, prefix="") -> list[str]:
-    return list({
-        word
-        for cluster in miner.drain.clusters 
-        for word in cluster.log_template_tokens + tuple(prefix.split())
-    })
+    # def get_unique_template_words(self) -> list[str]:
+    #     return list(
+    #         {
+    #             word
+    #             for cluster in self.templates.values()
+    #             for word in cluster.split()
+    #         }
+    #     )
 
-def match_line(line: str, miner: TemplateMiner) -> dict | None:
-    result = miner.match(line)
+    def match_line(self, line: str) -> dict | None:
+        result = self.miner.match(line)
+        if result is None:
+            return None
 
-    # TODO: check similarity
-    if result is None:
-        return None
+        template = result.get_template()
+        parameters = [
+            param.value
+            for param in self.miner.extract_parameters(template, line) or []
+        ]
+        return {
+            "template_id": result.cluster_id,
+            "template": template,
+            "parameters": parameters,
+        }
 
-    template = result.get_template()
+    def build_dataset(self, logs: Iterable[str]) -> list[dict]:
+        processed_logs = [self.preprocesser(line) for line in logs]
 
-    parameters = [param.value for param in miner.extract_parameters(template, line) or []]
+        if not self.persistence_path.is_file():
+            self.build_miner(log["message"] for log in processed_logs)
+        self.templates = {
+            int(cluster.cluster_id): self.postprocessor(cluster.get_template())
+            for cluster in self.miner.drain.clusters
+        }
 
-    return {
-        "template_id": result.cluster_id,
-        "template": template,
-        "parameters": parameters,
-    }
+        dataset = []
+        for log in processed_logs:
+            match = self.match_line(log["message"])
+            if match is None:
+                print("didn't match to any template")
+                continue
+            match["template"] = self.templates[match["template_id"]]
+            match["parameters"] = log["parameters"] + match["parameters"]
+            dataset.append(match)
 
-def build_dataset(
-        logs: list[str], 
-        miner: TemplateMiner, 
-        persistence_path: str, 
-        preprocesser: Callable[[str], dict] = lambda s: {"message": s, "parameters": []}, 
-        prefix: str = "") -> list[dict]:
-
-    processed_logs = [preprocesser(line) for line in logs]
-
-    if not Path(persistence_path).is_file():
-        build_miner([log["message"] for log in processed_logs], miner)
-
-    dataset = []
-    for log in processed_logs:
-        match = match_line(log["message"], miner)
-        if match is None:
-            print("didn't match to any template")
-            continue
-        # combine parameters from preprocessing and matching
-        match["template"] = prefix + match["template"]
-        match["parameters"] = log["parameters"] + match["parameters"]
-        dataset.append(match)
-
-    return dataset
+        return dataset

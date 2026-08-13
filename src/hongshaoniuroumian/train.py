@@ -8,12 +8,12 @@ from pathlib import Path
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
-from ingest import get_logs, preprocess_ssh, SSH_PREFX
-from drain import build_dataset, get_templates, get_unique_template_words
+from ingest import get_logs, preprocess_ssh, postprocess_ssh
+from drain import Drain
 from dataset import LogDataset, split_dataset
 
 from template import Itemplate2Vec
-from parameter import ParameterEmbedding
+from parameter import Parameter2Vec
 from model import SequenceEncoder
 
 import pprint
@@ -29,6 +29,7 @@ WEIGHT_DECAY = 1e-2
 MAX_GRAD_NORM = 1.0
 EARLY_STOPPING_PATIENCE = 3
 MIN_VALIDATION_IMPROVEMENT = 1e-4
+PARAMETER_LOSS_WEIGHT = 0.25
 
 torch.manual_seed(42)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -36,16 +37,13 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 miner_persistence_path = "../../data/templateminerstate"
 checkpoint_path = Path("../../data/best_model.pt")
 
+# technically, this can stay in dataset.py, as thats where input and output vectors are vectorized
+# however, keepinig it here for now for debugging
 miner=TemplateMiner(FilePersistence(miner_persistence_path))
+drain = Drain(miner, miner_persistence_path, preprocess_ssh, postprocess_ssh)
 
-dataset = build_dataset(
-    logs=get_logs("../../data/SSH.log"),
-    miner=miner,
-    persistence_path=miner_persistence_path,
-    prefix=SSH_PREFX,
-    preprocesser=preprocess_ssh
-)
-templates = get_templates(miner, SSH_PREFX)
+dataset = drain.build_dataset(get_logs("../../data/SSH.log"))
+templates = drain.get_templates()
 
 # dataset = build_dataset(
 #     logs=get_logs("../../data/BGL.log"),
@@ -63,7 +61,7 @@ template_vectors_by_id = {
     template_id: vector.cpu()
     for template_id, vector in itemplate2vec.encode_templates(templates).items()
 }
-embedding_dim = next(iter(template_vectors_by_id.values())).shape[0]
+template_embedding_dim = next(iter(template_vectors_by_id.values())).shape[0]
 
 torch_dataset = LogDataset(dataset, template_vectors_by_id)
 
@@ -86,14 +84,10 @@ test_dataloader = DataLoader(
     pin_memory=device.type == "cuda",
 )
 
-parameter_vectorizer = ParameterEmbedding(output_dim=embedding_dim).to(device)
-
-for param in parameter_vectorizer.parameters():
-    param.requires_grad = False
-
 model = SequenceEncoder(
-    embedding_dim,
-    hidden_size=HIDDEN_SIZE,
+    template_embedding_dim,
+    Parameter2Vec.EMBEDDING_DIM,
+    template_hidden_size=HIDDEN_SIZE,
     num_layers=NUM_LAYERS,
     dropout=DROPOUT,
 ).to(device)
@@ -129,21 +123,26 @@ def average_loss(dataloader, max_batches=None):
                 for tensor in targets
             )
 
-            # parameter_vectors = parameter_vectorizer(input_parameter_features)
-            target_vectors = (
-                target_template_vectors
-                # + parameter_vectorizer(target_parameter_features)
-            )
-            predicted_vectors = model(
+            predicted_template_vectors, predicted_parameter_vectors = model(
                 input_template_vectors,
-                # parameter_vectors,
+                input_parameter_features,
             )
             cosine_target = torch.ones(
-                predicted_vectors.shape[0],
-                device=predicted_vectors.device,
+                predicted_template_vectors.shape[0],
+                device=predicted_template_vectors.device,
             )
 
-            total += loss_fn(predicted_vectors, target_vectors, cosine_target).item()
+            template_loss = loss_fn(
+                predicted_template_vectors,
+                target_template_vectors,
+                cosine_target,
+            )
+            parameter_loss = loss_fn(
+                predicted_parameter_vectors,
+                target_parameter_features,
+                cosine_target,
+            )
+            total += (template_loss + PARAMETER_LOSS_WEIGHT * parameter_loss).item()
             batches += 1
 
     return total / batches if batches else 0.0
@@ -195,27 +194,29 @@ for epoch in range(EPOCHS):
             for tensor in targets
         )
 
-        with torch.no_grad():
-            # parameter_vectors = parameter_vectorizer(input_parameter_features)
-            target_vector = (
-                target_template_vectors
-                # + parameter_vectorizer(target_parameter_features)
-            )
-
         optimizer.zero_grad(set_to_none=True)
 
-        predicted_vector = model(input_template_vectors)#, parameter_vectors)
+        predicted_template_vector, predicted_parameter_vector = model(
+            input_template_vectors,
+            input_parameter_features,
+        )
 
         cosine_target = torch.ones(
-            predicted_vector.shape[0],
-            device=predicted_vector.device,
+            predicted_template_vector.shape[0],
+            device=predicted_template_vector.device,
         )
 
-        loss = loss_fn(
-            predicted_vector,
-            target_vector,
+        template_loss = loss_fn(
+            predicted_template_vector,
+            target_template_vectors,
             cosine_target,
         )
+        parameter_loss = loss_fn(
+            predicted_parameter_vector,
+            target_parameter_features,
+            cosine_target,
+        )
+        loss = template_loss + PARAMETER_LOSS_WEIGHT * parameter_loss
 
         loss.backward()
         grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), MAX_GRAD_NORM)

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from parameter import Parameter2Vec
 
 class Attention(nn.Module):
     def __init__(self, hidden_dim: int):
@@ -42,16 +43,18 @@ class Attention(nn.Module):
 class SequenceEncoder(nn.Module):
     def __init__(
         self,
-        embedding_dim: int,
-        hidden_size: int = 64,
+        template_embedding_dim: int,
+        parameter_embedding_dim: int,
+        template_hidden_size: int = 64,
+        parameter_hidden_size: int = 32,
         num_layers: int = 1,
         dropout: float = 0.1
     ):
         super().__init__()
 
         self.template_bilstm = nn.LSTM(
-            input_size=embedding_dim,
-            hidden_size=hidden_size,
+            input_size=template_embedding_dim,
+            hidden_size=template_hidden_size,
             num_layers=num_layers,
             dropout=dropout if num_layers > 1 else 0.0,
             batch_first=True,
@@ -59,12 +62,12 @@ class SequenceEncoder(nn.Module):
         )
 
         self.template_attention = Attention(
-            hidden_dim=hidden_size * 2,
+            hidden_dim=template_hidden_size * 2,
         )
 
         self.parameter_bilstm = nn.LSTM(
-            input_size=embedding_dim,
-            hidden_size=hidden_size,
+            input_size=parameter_embedding_dim,
+            hidden_size=parameter_hidden_size,
             num_layers=num_layers,
             dropout=dropout if num_layers > 1 else 0.0,
             batch_first=True,
@@ -72,12 +75,17 @@ class SequenceEncoder(nn.Module):
         )
 
         self.parameter_attention = Attention(
-            hidden_dim=hidden_size * 2,
+            hidden_dim=parameter_hidden_size * 2,
         )
 
-        self.output_projection = nn.Linear(
-            hidden_size * 2,
-            embedding_dim
+        self.template_output_projection = nn.Linear(
+            template_hidden_size * 2,
+            template_embedding_dim
+        )
+
+        self.parameter_output_projection = nn.Linear(
+            parameter_hidden_size * 2,
+            parameter_embedding_dim
         )
 
         self.dropout = nn.Dropout(dropout)
@@ -85,8 +93,8 @@ class SequenceEncoder(nn.Module):
     def forward(
         self,
         template_vectors: torch.Tensor,
-        # parameter_vectors: torch.Tensor,
-    ) -> torch.Tensor:
+        parameter_vectors: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         
         # [batch, seq_len, hidden_size * 2]
         template_output, _ = self.template_bilstm(template_vectors)
@@ -95,14 +103,13 @@ class SequenceEncoder(nn.Module):
         template_context = (self.template_attention(template_output))
 
         # # [batch, seq_len, hidden_size * 2]
-        # parameter_output, _ = self.parameter_bilstm(parameter_vectors)
-        # parameter_output = self.dropout(parameter_output)
+        parameter_output, _ = self.parameter_bilstm(parameter_vectors)
+        parameter_output = self.dropout(parameter_output)
         # # [batch, hidden_size * 2]
-        # parameter_context = self.parameter_attention(parameter_output)
+        parameter_context = self.parameter_attention(parameter_output)
 
-        # [batch, hidden_size * 2]
-        context = template_context #+ parameter_context
+        template_pred = self.template_output_projection(template_context)
+        parameter_pred = self.parameter_output_projection(parameter_context)
 
-        pred = self.output_projection(context)
 
-        return pred
+        return template_pred, parameter_pred

@@ -1,8 +1,7 @@
 import torch
 from torch.utils.data import Dataset, Subset
 
-from parameter import extract_parameter_features
-
+from parameter import Parameter2Vec
 
 WINDOW_SIZE = 20
 
@@ -16,9 +15,9 @@ class LogDataset(Dataset):
         self.template_vectors = torch.stack(
             [template_vectors[log["template_id"]] for log in logs],
         )
-        self.parameter_features = torch.tensor(
-            [extract_parameter_features(log["parameters"]) for log in logs],
-            dtype=torch.float32,
+        parameter2vec = Parameter2Vec()
+        self.parameter_vectors = torch.stack(
+            [parameter2vec.encode_parameter(log["parameters"]) for log in logs],
         )
 
     def __len__(self):
@@ -29,10 +28,10 @@ class LogDataset(Dataset):
         end = start + WINDOW_SIZE
         return (
             self.template_vectors[start:end],
-            self.parameter_features[start:end],
+            self.parameter_vectors[start:end],
         ), (
             self.template_vectors[end],
-            self.parameter_features[end]
+            self.parameter_vectors[end]
         )
 
 
