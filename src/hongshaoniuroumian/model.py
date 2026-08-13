@@ -56,6 +56,7 @@ class SequenceEncoder(nn.Module):
             input_size=embedding_dim,
             hidden_size=hidden_size,
             num_layers=num_layers,
+            dropout=dropout if num_layers > 1 else 0.0,
             batch_first=True,
             bidirectional=True,
         )
@@ -68,6 +69,7 @@ class SequenceEncoder(nn.Module):
             input_size=embedding_dim,
             hidden_size=hidden_size,
             num_layers=num_layers,
+            dropout=dropout if num_layers > 1 else 0.0,
             batch_first=True,
             bidirectional=True,
         )
