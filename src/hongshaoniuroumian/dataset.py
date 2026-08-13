@@ -7,7 +7,7 @@ from parameter import extract_parameter_features
 WINDOW_SIZE = 20
 
 #TODO: change to sliding window
-class NextLogDataset(Dataset):
+class LogDataset(Dataset):
     def __init__(self, logs):
         self.logs = torch.tensor(
             [log["template_id"] for log in logs],

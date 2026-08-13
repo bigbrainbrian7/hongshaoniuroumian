@@ -76,7 +76,7 @@ def extract_parameter_features(
     ]
 
 
-class ParameterFeatureEncoder(nn.Module):
+class ParameterEmbedding(nn.Module):
     """
     Converts fixed numerical parameter features
     into a learned dense parameter representation.

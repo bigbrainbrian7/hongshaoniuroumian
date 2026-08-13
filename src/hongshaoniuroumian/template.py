@@ -6,7 +6,7 @@ class TemplateEmbedding(nn.Module):
     def __init__(
         self,
         num_templates: int,
-        embedding_dim: int = 64,
+        embedding_dim: int = 32,
     ):
         super().__init__()
 

@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 
 from ingest import get_logs, preprocess_ssh, SSH_PREFX
 from drain import build_dataset, get_templates, get_unique_template_words
-from dataset import NextLogDataset
+from dataset import LogDataset
 
 import pprint
 
@@ -30,6 +30,6 @@ dataset = build_dataset(
 # bruh2 = set(get_unique_template_words(miner, prefix=SSH_PREFX))
 # print(bruh2-bruh1)
 
-torch_dataset = NextLogDataset(dataset)
+torch_dataset = LogDataset(dataset)
 dataloader = DataLoader(torch_dataset, batch_size=1, shuffle=True)
 print(next(iter(dataloader)))
