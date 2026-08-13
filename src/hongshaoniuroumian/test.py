@@ -22,14 +22,13 @@ dataset = build_dataset(
     preprocesser=preprocess_ssh
 )
 
-# for i in range(5):
-#     print(f"Log {i}:")
-#     pprint.pprint(dataset[i])
+for i in range(100):
+    print(f"Log {i}:")
+    pprint.pprint(dataset[i])
 
 # bruh1 = set(get_unique_template_words(miner))
 # bruh2 = set(get_unique_template_words(miner, prefix=SSH_PREFX))
 # print(bruh2-bruh1)
 
-torch_dataset = LogDataset(dataset)
-dataloader = DataLoader(torch_dataset, batch_size=1, shuffle=True)
-print(next(iter(dataloader)))
+# torch_dataset = LogDataset(dataset)
+# dataloader = DataLoader(torch_dataset, batch_size=1, shuffle=True)

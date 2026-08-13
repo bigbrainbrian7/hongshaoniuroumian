@@ -8,10 +8,13 @@ WINDOW_SIZE = 20
 
 #TODO: change to sliding window
 class LogDataset(Dataset):
-    def __init__(self, logs):
-        self.logs = torch.tensor(
-            [log["template_id"] for log in logs],
-            dtype=torch.long,
+    def __init__(
+        self,
+        logs: list[dict],
+        template_vectors: dict[int, torch.Tensor],
+    ):
+        self.template_vectors = torch.stack(
+            [template_vectors[log["template_id"]] for log in logs],
         )
         self.parameter_features = torch.tensor(
             [extract_parameter_features(log["parameters"]) for log in logs],
@@ -19,16 +22,16 @@ class LogDataset(Dataset):
         )
 
     def __len__(self):
-        return max(0, (len(self.logs) - 1) // WINDOW_SIZE)
+        return max(0, (len(self.template_vectors) - 1) // WINDOW_SIZE)
 
     def __getitem__(self, index):
         start = index * WINDOW_SIZE
         end = start + WINDOW_SIZE
         return (
-            self.logs[start:end],
+            self.template_vectors[start:end],
             self.parameter_features[start:end],
         ), (
-            self.logs[end],
+            self.template_vectors[end],
             self.parameter_features[end]
         )
 

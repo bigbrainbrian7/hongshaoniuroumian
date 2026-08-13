@@ -1,5 +1,7 @@
 import ipaddress
 import re
+from enum import StrEnum
+from datetime import datetime
 
 import torch
 import torch.nn as nn
@@ -13,6 +15,94 @@ IPV4_PATTERN = re.compile(
 INTEGER_PATTERN = re.compile(
     r"^-?\d+$"
 )
+
+NUMBER_PATTERN = re.compile(
+    r"^-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$"
+)
+
+HOSTNAME_PATTERN = re.compile(
+    r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
+)
+
+URL_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
+
+STATE_VALUES = {
+    "accepted",
+    "closed",
+    "connected",
+    "disconnect",
+    "disconnected",
+    "failed",
+    "failure",
+    "invalid",
+    "no",
+    "open",
+    "preauth",
+    "[preauth]"
+    "ssh2",
+    "success",
+    "true",
+    "false",
+    "yes",
+}
+
+TIME_FORMATS = (
+    "%b %d %H:%M:%S",
+    "%Y-%m-%d",
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S.%f",
+)
+
+
+class ParameterType(StrEnum):
+    TIME = "time"
+    USER = "user"
+    NUMBER = "number"
+    STATE = "state"
+    RESOURCE = "resource"
+
+
+def is_time(value: str) -> bool:
+    for time_format in TIME_FORMATS:
+        try:
+            datetime.strptime(value, time_format)
+            return True
+        except ValueError:
+            continue
+    return False
+
+
+def is_resource(value: str) -> bool:
+    if URL_PATTERN.match(value) or value.startswith(("/", "./", "../", "~")):
+        return True
+
+    if HOSTNAME_PATTERN.match(value):
+        return True
+
+    try:
+        ipaddress.ip_address(value)
+        return True
+    except ValueError:
+        return False
+
+
+def classify_parameter(value: str) -> ParameterType:
+    value = str(value).strip()
+
+    if is_time(value):
+        return ParameterType.TIME
+    if NUMBER_PATTERN.match(value):
+        return ParameterType.NUMBER
+    if value.lower() in STATE_VALUES:
+        return ParameterType.STATE
+    if is_resource(value):
+        return ParameterType.RESOURCE
+    return ParameterType.USER
+
+
+def classify_parameters(parameters: list[str]) -> list[ParameterType]:
+    return [classify_parameter(parameter) for parameter in parameters]
 
 
 def is_ipv4(value: str) -> bool:

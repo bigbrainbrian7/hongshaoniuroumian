@@ -1,9 +1,6 @@
 import torch
 import torch.nn as nn
 
-from template import TemplateEmbedding
-from parameter import ParameterEmbedding
-
 
 class Attention(nn.Module):
     def __init__(self, hidden_dim: int):
@@ -88,7 +85,7 @@ class SequenceEncoder(nn.Module):
     def forward(
         self,
         template_vectors: torch.Tensor,
-        parameter_vectors: torch.Tensor,
+        # parameter_vectors: torch.Tensor,
     ) -> torch.Tensor:
         
         # [batch, seq_len, hidden_size * 2]
@@ -97,14 +94,14 @@ class SequenceEncoder(nn.Module):
         # [batch, hidden_size * 2]
         template_context = (self.template_attention(template_output))
 
-        # [batch, seq_len, hidden_size * 2]
-        parameter_output, _ = self.parameter_bilstm(parameter_vectors)
-        parameter_output = self.dropout(parameter_output)
-        # [batch, hidden_size * 2]
-        parameter_context = self.parameter_attention(parameter_output)
+        # # [batch, seq_len, hidden_size * 2]
+        # parameter_output, _ = self.parameter_bilstm(parameter_vectors)
+        # parameter_output = self.dropout(parameter_output)
+        # # [batch, hidden_size * 2]
+        # parameter_context = self.parameter_attention(parameter_output)
 
         # [batch, hidden_size * 2]
-        context = template_context + parameter_context
+        context = template_context #+ parameter_context
 
         pred = self.output_projection(context)
 

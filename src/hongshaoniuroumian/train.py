@@ -12,14 +12,13 @@ from ingest import get_logs, preprocess_ssh, SSH_PREFX
 from drain import build_dataset, get_templates, get_unique_template_words
 from dataset import LogDataset, split_dataset
 
-from template import TemplateEmbedding
+from template import Itemplate2Vec
 from parameter import ParameterEmbedding
 from model import SequenceEncoder
 
 import pprint
 
 EPOCHS = 10
-embedding_dim = 64
 HIDDEN_SIZE = 128
 NUM_LAYERS = 2
 DROPOUT = 0.2
@@ -47,9 +46,26 @@ dataset = build_dataset(
     preprocesser=preprocess_ssh
 )
 templates = get_templates(miner, SSH_PREFX)
+
+# dataset = build_dataset(
+#     logs=get_logs("../../data/BGL.log"),
+#     miner=miner,
+#     persistence_path=miner_persistence_path,
+#     # prefix=SSH_PREFX,
+#     # preprocesser=preprocess_ssh
+# )
+# templates = get_templates(miner)
+
 pprint.pprint(templates)
 
-torch_dataset = LogDataset(dataset)
+itemplate2vec = Itemplate2Vec(device=device)
+template_vectors_by_id = {
+    template_id: vector.cpu()
+    for template_id, vector in itemplate2vec.encode_templates(templates).items()
+}
+embedding_dim = next(iter(template_vectors_by_id.values())).shape[0]
+
+torch_dataset = LogDataset(dataset, template_vectors_by_id)
 
 train_logs, val_logs, test_logs = split_dataset(torch_dataset)
 
@@ -70,13 +86,7 @@ test_dataloader = DataLoader(
     pin_memory=device.type == "cuda",
 )
 
-
-# need to put in template id-1 as drain returns template ids one indexed
-template_vectorizer = TemplateEmbedding(len(templates), embedding_dim).to(device)
 parameter_vectorizer = ParameterEmbedding(output_dim=embedding_dim).to(device)
-
-for param in template_vectorizer.parameters():
-    param.requires_grad = False
 
 for param in parameter_vectorizer.parameters():
     param.requires_grad = False
@@ -110,27 +120,23 @@ def average_loss(dataloader, max_batches=None):
             if max_batches is not None and batch_index == max_batches:
                 break
 
-            input_template_ids, input_parameter_features = (
+            input_template_vectors, input_parameter_features = (
                 tensor.to(device, non_blocking=True)
                 for tensor in inputs
             )
-            target_template_ids, target_parameter_features = (
+            target_template_vectors, target_parameter_features = (
                 tensor.to(device, non_blocking=True)
                 for tensor in targets
             )
 
-            input_template_ids = input_template_ids - 1
-            target_template_ids = target_template_ids - 1
-
-            template_vectors = template_vectorizer(input_template_ids)
-            parameter_vectors = parameter_vectorizer(input_parameter_features)
+            # parameter_vectors = parameter_vectorizer(input_parameter_features)
             target_vectors = (
-                template_vectorizer(target_template_ids)
-                + parameter_vectorizer(target_parameter_features)
+                target_template_vectors
+                # + parameter_vectorizer(target_parameter_features)
             )
             predicted_vectors = model(
-                template_vectors,
-                parameter_vectors,
+                input_template_vectors,
+                # parameter_vectors,
             )
             cosine_target = torch.ones(
                 predicted_vectors.shape[0],
@@ -180,34 +186,25 @@ for epoch in range(EPOCHS):
     for i, data in enumerate(train_dataloader):
         inputs, targets = data
 
-        input_template_ids, input_parameter_features = (
+        input_template_vectors, input_parameter_features = (
             tensor.to(device, non_blocking=True)
             for tensor in inputs
         )
-        target_template_id, target_parameter_features = (
+        target_template_vectors, target_parameter_features = (
             tensor.to(device, non_blocking=True)
             for tensor in targets
         )
 
-        # Drain IDs are 1-indexed, nn.Embedding is 0-indexed
-        input_template_ids = input_template_ids - 1
-        target_template_id = target_template_id - 1
-
         with torch.no_grad():
-            template_vectors = template_vectorizer(input_template_ids)
-            parameter_vectors = parameter_vectorizer(input_parameter_features)
-
-            target_template_vector = template_vectorizer(target_template_id)
-            target_parameter_vector = parameter_vectorizer(target_parameter_features)
-
-            #intentionally element wise
-            # want parameters to be an addition, rather than a separate dimension to be considered
-            # shouldnt be **too** bad
-            target_vector = target_template_vector + target_parameter_vector
+            # parameter_vectors = parameter_vectorizer(input_parameter_features)
+            target_vector = (
+                target_template_vectors
+                # + parameter_vectorizer(target_parameter_features)
+            )
 
         optimizer.zero_grad(set_to_none=True)
 
-        predicted_vector = model(template_vectors, parameter_vectors)
+        predicted_vector = model(input_template_vectors)#, parameter_vectors)
 
         cosine_target = torch.ones(
             predicted_vector.shape[0],
