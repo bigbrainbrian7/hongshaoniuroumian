@@ -1,36 +1,61 @@
-from drain3 import TemplateMiner
-from drain3.template_miner_config import TemplateMinerConfig
-from drain3.file_persistence import FilePersistence
-from pathlib import Path
-from torch.utils.data import DataLoader
-
-from ingest import get_logs, preprocess_ssh, postprocess_ssh
-from drain import Drain
-from dataset import LogDataset
-
 import pprint
 
+from dataset import WINDOW_SIZE
+from generation import LogGenerator
+from ingest import get_logs, preprocess_ssh
+
 miner_persistence_path = "../../data/templateminerstate"
+checkpoint_path = "../../data/best_model.pt"
+raw_logs = get_logs("../../data/SSH.log")
 
-miner=TemplateMiner(FilePersistence(miner_persistence_path))
-drain = Drain(miner, miner_persistence_path, preprocess_ssh, postprocess_ssh)
+tot = (len(raw_logs))
+train_validate_frac = 0.9
+bruh = int(train_validate_frac * tot)
+bruh+=2
+print(bruh)
 
-dataset = drain.build_dataset(get_logs("../../data/SSH.log"))
 
-# for i in range(100):
-#     print(f"Log {i}:")
-#     pprint.pprint(dataset[i])
-j=0
-for i in range(1000):
-# for i in range(len(dataset)):
-    data = dataset[i]
-    # if data["template_id"] == 9:
-    if i == 33:
-        # if data["parameters"][-1] 7!= "ByeBye":
-        print(f"Log {i}")
-        pprint.pprint(data)
+input_lines = raw_logs[bruh:bruh+WINDOW_SIZE]
+real_line = raw_logs[bruh+WINDOW_SIZE+1]
+generator = LogGenerator(
+    checkpoint_path,
+    miner_persistence_path,
+    window_size=WINDOW_SIZE,
+)
 
-pprint.pprint(drain.get_templates())
+# bruh_line = raw_logs[3]
+# print(bruh_line)
+# print(preprocess_ssh(bruh_line))
 
-# torch_dataset = LogDataset(dataset)
-# dataloader = DataLoader(torch_dataset, batch_size=1, shuffle=True)
+
+def print_vectorization(index: int, raw_line: str) -> None:
+    processed = preprocess_ssh(raw_line)
+    template_vector, parameter_vector, event = generator.vectorize_log(raw_line)
+    pprint.pprint({
+        "index": index,
+        "raw_line": raw_line,
+        "message": processed.get("message"),
+        "template_id": event.get("template_id"),
+        "template": event.get("template"),
+        "preprocess_parameters": processed.get("parameters"),
+        "matched_parameters": event.get("parameters"),
+        "all_parameters": (
+            processed.get("parameters", []) + event.get("parameters", [])
+        ),
+        "template_vector_shape": (
+            tuple(template_vector.shape) if template_vector is not None else None
+        ),
+        "parameter_vector": (
+            parameter_vector.tolist() if parameter_vector is not None else None
+        ),
+    })
+
+
+for index, line in enumerate(input_lines):
+    print_vectorization(index, line)
+
+print("Real output:")
+print_vectorization(WINDOW_SIZE, real_line)
+
+print("Score:")
+pprint.pprint(generator.score_inputs(input_lines, real_line))

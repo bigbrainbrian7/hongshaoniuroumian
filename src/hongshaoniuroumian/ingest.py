@@ -7,7 +7,7 @@ SYSLOG_REGEX = re.compile(
     r"\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}"
     r")\s+"
     r"(?P<host>\S+)\s+"
-    r"(?P<process>\w+)"
+    r"(?P<process>[\w-]+)"
     r"\[(?P<pid>\d+)\]:\s+"
     r"(?P<message>.*)$"
 )
@@ -48,7 +48,7 @@ def preprocess_ssh(line) -> dict:
 
     if not match:
         print(f"Line did not match syslog format: {line}")
-        return {}
+        return {"message": line, "parameters": []}
     
     match = match.groupdict()
     match["parameters"] = [match["timestamp"], match["pid"]]

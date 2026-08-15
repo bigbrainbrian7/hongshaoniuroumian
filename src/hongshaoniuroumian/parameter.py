@@ -55,14 +55,14 @@ def classify_parameters(parameters: list[str]) -> list[ParameterType]:
 class Parameter2Vec:
     EMBEDDING_DIM = 10
 
-    def encode_parameter(self, parameters: str) -> torch.Tensor:
+    def encode_parameter(self, parameters: list[str]) -> torch.Tensor:
         for parameter in parameters:
             parameter_type = classify_parameter(parameter)
             if parameter_type is ParameterType.TIME:
                 return self.encode_time(parameter)
 
-        #itll error out but at least ill know something went wrong
-        return torch.zeros((1,997))
+        # in the case no time (doesnt match syslog format like boot process) something abnormal has happened either way. so we can just have goofy parameter vector
+        return torch.zeros(self.EMBEDDING_DIM)
 
     def encode_time(self, value: str) -> torch.Tensor:
         parsed = parse_time(str(value).strip())

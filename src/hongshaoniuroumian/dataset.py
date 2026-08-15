@@ -47,10 +47,10 @@ def split_dataset(
     total = len(dataset)
     train_end = int(total * train_fraction)
     validation_end = train_end + int(total * validation_fraction)
-    indices = torch.randperm(total).tolist()
+    training_indices = torch.randperm(validation_end).tolist()
 
     return (
-        Subset(dataset, indices[:train_end]),
-        Subset(dataset, indices[train_end:validation_end]),
-        Subset(dataset, indices[validation_end:]),
+        Subset(dataset, training_indices[:train_end]),
+        Subset(dataset, training_indices[train_end:]),
+        Subset(dataset, range(validation_end, total)),
     )
