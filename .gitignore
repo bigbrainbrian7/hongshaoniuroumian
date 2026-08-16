@@ -3,3 +3,28 @@ __pycache__/
 *.py[cod]
 
 data/
+
+# Python tooling
+.coverage
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+
+# Model artifacts
+*.pt
+*.pth
+
+# Frontend build artifacts
+web/node_modules/
+web/dist/
+web/.vite/
+web/*.tsbuildinfo
+
+# Local configuration
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store

@@ -118,7 +118,12 @@ class LogGenerator:
         if target_template is None or target_parameter is None:
             return {"error": "ts dont work"}
 
-        result = None
+        result = {
+            "template_id": event["template_id"],
+            "template": self.drain.get_templates()[event["template_id"]],
+            "template_similarity": 1.0,
+            "scored": False,
+        }
         if len(self.templates) == self.window_size:
             input_templates = torch.stack(tuple(self.templates)).unsqueeze(0).to(self.device)
             input_parameters = torch.stack(tuple(self.parameters)).unsqueeze(0).to(self.device)
@@ -128,8 +133,7 @@ class LogGenerator:
                     input_parameters,
                 )
 
-            result = {
-                "template_id": event["template_id"],
+            result.update({
                 "template_similarity": F.cosine_similarity(
                     predicted_template,
                     target_template.unsqueeze(0).to(self.device),
@@ -138,7 +142,8 @@ class LogGenerator:
                     predicted_parameter,
                     target_parameter.unsqueeze(0).to(self.device),
                 ).item(),
-            }
+                "scored": True,
+            })
 
         self.templates.append(target_template)
         self.parameters.append(target_parameter)
