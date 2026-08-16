@@ -4,13 +4,17 @@ import sys
 from pathlib import Path
 import matplotlib.pyplot as plt
 from generation import LogGenerator
+from ingest import postprocess_bruh, postprocess_ssh, preprocess_bruh, preprocess_ssh
 
 import numpy as np
 
 
 def parse_args() -> argparse.Namespace:
-    miner_persistence_path = "../../data/templateminerstate"
-    checkpoint_path = "../../data/best_model.pt"
+    # miner_persistence_path = "../../data/templateminerstate"
+    # checkpoint_path = "../../data/best_model.pt"
+
+    miner_persistence_path = "../../data/bruh-templateminerstate"
+    checkpoint_path = "../../data/bruh-final_model.pt"
 
     parser = argparse.ArgumentParser(
         description="Score SSH/syslog events from standard input."
@@ -21,6 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hidden-size", type=int, default=128)
     parser.add_argument("--num-layers", type=int, default=2)
     parser.add_argument("--dropout", type=float, default=0.2)
+    parser.add_argument("--format", choices=("ssh", "bruh"), default="ssh")
     parser.add_argument("--output", type=Path, default=Path("../../data/stream-results.jsonl"))
     return parser.parse_args()
 
@@ -28,6 +33,11 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     bruh = []
     args = parse_args()
+    preprocesser, postprocesser = (
+        (preprocess_bruh, postprocess_bruh)
+        if args.format == "bruh"
+        else (preprocess_ssh, postprocess_ssh)
+    )
     generator = LogGenerator(
         args.checkpoint,
         args.miner_state,
@@ -35,6 +45,8 @@ def main() -> None:
         args.hidden_size,
         args.num_layers,
         args.dropout,
+        preprocesser,
+        postprocesser,
     )
 
     with args.output.open("w") as output_file:

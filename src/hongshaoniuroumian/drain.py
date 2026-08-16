@@ -4,6 +4,11 @@ from typing import Callable
 
 from drain3 import TemplateMiner
 
+from template import Itemplate2Vec
+
+import torch
+import torch.nn.functional as F
+
 class Drain:
     def __init__(
         self,
@@ -14,12 +19,15 @@ class Drain:
             "parameters": [],
         },
         postprocesser: Callable[[str], str] = lambda s: s,
+        template_vectorizer: Itemplate2Vec | None = None
     ) -> None:
         self.miner = miner
         self.persistence_path = Path(persistence_path)
         self.preprocesser = preprocesser
         self.postprocessor = postprocesser
         self.templates: dict[int, str]
+        self.template_embedder = template_vectorizer
+        self.template_vectors = None
 
 
     def build_miner(self, lines: Iterable[str]) -> None:
@@ -41,7 +49,38 @@ class Drain:
     def match_line(self, line: str) -> dict | None:
         result = self.miner.match(line)
         if result is None:
-            return None
+            if self.template_embedder:
+                if self.template_vectors is None:
+                    self.template_vectors = {
+                        template_id: vector.cpu()
+                        for template_id, vector in self.template_embedder.encode_templates(
+                            self.templates
+                        ).items()
+                    }
+
+                template_ids = list(self.template_vectors)
+                template_matrix = torch.stack(
+                    [self.template_vectors[template_id] for template_id in template_ids]
+                )
+                vector = self.template_embedder._encode(
+                    [self.postprocessor(line)]
+                )[0].cpu()
+                similarities = F.cosine_similarity(
+                    template_matrix,
+                    vector.unsqueeze(0),
+                    dim=1,
+                )
+                best_index = int(similarities.argmax().item())
+                template_id = template_ids[best_index]
+                return {
+                    "template_id": template_id,
+                    "template": self.templates[template_id],
+                    "parameters": [],
+                    "matched_by_similarity": True,
+                    "matched_template_similarity": similarities[best_index].item(),
+                }
+            else:
+                return None
 
         template = result.get_template()
         parameters = [
@@ -75,3 +114,6 @@ class Drain:
             dataset.append(match)
 
         return dataset
+
+    def get_template_vectors(self):
+        return self.template_vectors

@@ -6,10 +6,10 @@ from ingest import get_logs, preprocess_ssh
 
 miner_persistence_path = "../../data/templateminerstate"
 checkpoint_path = "../../data/best_model.pt"
-raw_logs = get_logs("../../data/SSH.log")
+raw_logs = get_logs("../../data/bruh.log")
 
 tot = (len(raw_logs))
-train_validate_frac = 0.9
+train_validate_frac = 0.85
 bruh = int(train_validate_frac * tot)
 bruh+=2
 print(bruh)

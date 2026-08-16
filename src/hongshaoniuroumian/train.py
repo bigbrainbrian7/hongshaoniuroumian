@@ -8,7 +8,7 @@ from pathlib import Path
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
-from ingest import get_logs, preprocess_ssh, postprocess_ssh
+from ingest import get_logs, preprocess_bruh, postprocess_bruh
 from drain import Drain
 from dataset import LogDataset, split_dataset
 
@@ -34,16 +34,16 @@ PARAMETER_LOSS_WEIGHT = 0.25
 torch.manual_seed(42)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-miner_persistence_path = "../../data/templateminerstate"
-checkpoint_path = Path("../../data/best_model.pt")
-final_model_path = Path("../../data/final_model.pt")
+miner_persistence_path = "../../data/bruh-templateminerstate"
+checkpoint_path = Path("../../data/bruh-best_model.pt")
+final_model_path = Path("../../data/bruh-final_model.pt")
 
 # technically, this can stay in dataset.py, as thats where input and output vectors are vectorized
 # however, keepinig it here for now for debugging
 miner=TemplateMiner(FilePersistence(miner_persistence_path))
-drain = Drain(miner, miner_persistence_path, preprocess_ssh, postprocess_ssh)
+drain = Drain(miner, miner_persistence_path, preprocess_bruh, postprocess_bruh)
 
-dataset = drain.build_dataset(get_logs("../../data/SSH.log"))
+dataset = drain.build_dataset(get_logs("../../data/bruh.log"))
 templates = drain.get_templates()
 
 # dataset = build_dataset(

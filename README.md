@@ -1,6 +1,6 @@
 # HongShaoNiuRouMian
 
-Log anomaly detection system inspired by [TPLogAD](https://arxiv.org/abs/2411.15250)
+Log anomaly detection system inspired by [LogAnomaly](https://doi.org/10.24963/ijcai.2019/658) and [TPLogAD](https://arxiv.org/abs/2411.15250)
 
 
 ## Data

@@ -7,8 +7,8 @@ import { ProjectNotes } from "./components/ProjectNotes";
 import { ThresholdControl } from "./components/ThresholdControl";
 import type { LogRecord } from "./types";
 
-const LOG_FILE = "/data/stream-results.jsonl";
-// const LOG_FILE = "/data/test.jsonl";
+// const LOG_FILE = "/data/stream-results.jsonl";
+const LOG_FILE = "/data/bruh_test.jsonl";
 const PLAYBACK_INTERVAL_MS = 350;
 const INITIAL_WINDOW_SIZE = 100;
 const SCROLL_ADVANCE = 1;
@@ -86,7 +86,7 @@ export function App() {
       </header>
 
       <section className="project-intro">
-        <h2>An unsupervised next-event anomaly detector for OpenSSH traces.</h2>
+        <h2>A Next-Event Anomaly Detector for OpenSSH Server Logs</h2>
         <ul>
           <li>Parses raw events into Drain-derived log templates.</li>
           <li>Builds a 100-event history from frozen template embeddings and cyclical time-parameter encodings.</li>
@@ -102,7 +102,7 @@ export function App() {
           <div className="stream-heading">
             <div>
               <p className="menu-kicker">MODEL OUTPUT</p>
-              <h2>UnaLive anomaly stream</h2>
+              <h2>UnaLive Anomaly Stream</h2>
             </div>
             <p className="status">Showing {revealedCount} of {logs.length} logs.</p>
           </div>

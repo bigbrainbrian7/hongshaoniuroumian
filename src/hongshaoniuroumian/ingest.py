@@ -38,24 +38,29 @@ def get_logs(path: str) -> list[str]:
 
     return logs
 
-def preprocess_ssh(line) -> dict:
-    for k, v in ssh_mapping.items():
-        line = line.replace(k, v)
-
-    # line = re.sub(IP_REGEX, r" \g<0> ", line)
-
+def preprocess_bruh(line: str) -> dict:
     match = SYSLOG_REGEX.match(line)
 
     if not match:
-        print(f"Line did not match syslog format: {line}")
         return {"message": line, "parameters": []}
-    
+
     match = match.groupdict()
     match["parameters"] = [match["timestamp"], match["pid"]]
     return match
+
+
+def preprocess_ssh(line: str) -> dict:
+    for k, v in ssh_mapping.items():
+        line = line.replace(k, v)
+
+    return preprocess_bruh(line)
 
 def postprocess_ssh(line: str) -> str:
     for k, v in ssh_backmap.items():
         line = line.replace(k, v)
 
     return SSH_PREFX + line
+
+
+def postprocess_bruh(line: str) -> str:
+    return line

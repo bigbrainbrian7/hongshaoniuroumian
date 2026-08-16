@@ -21,14 +21,17 @@ class LogGenerator:
         hidden_size: int = 128,
         num_layers: int = 2,
         dropout: float = 0.2,
+        preprocesser=preprocess_ssh,
+        postprocesser=postprocess_ssh,
     ) -> None:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.window_size = window_size
         miner = TemplateMiner(FilePersistence(miner_state))
-        self.drain = Drain(miner, miner_state, preprocess_ssh, postprocess_ssh)
+        self.preprocesser = preprocesser
+        template_encoder = Itemplate2Vec(device=self.device)
+        self.drain = Drain(miner, miner_state, preprocesser, postprocesser, template_encoder)
         self.drain.build_dataset(())
 
-        template_encoder = Itemplate2Vec(device=self.device)
         self.template_vectors = {
             template_id: vector.cpu()
             for template_id, vector in template_encoder.encode_templates(
@@ -54,14 +57,14 @@ class LogGenerator:
 
     # if it works it works
     def vectorize_log(self, raw_line: str)-> tuple[torch.Tensor | None, torch.Tensor | None, dict]:
-        processed = preprocess_ssh(raw_line)
+        processed = self.preprocesser(raw_line)
         if not processed:
             print("invalid syslog line")
             return None, None, {}
 
         event = self.drain.match_line(processed["message"])
-        if event is None or event["template_id"] not in self.template_vectors:
-            print("unrecognized template")
+        if event is None:
+            print("matching went wrong")
             return None, None, {}
 
         template = self.template_vectors[event["template_id"]]
@@ -124,6 +127,11 @@ class LogGenerator:
             "template_similarity": 1.0,
             "scored": False,
         }
+        if event.get("matched_by_similarity"):
+            result["matched_by_similarity"] = True
+            result["matched_template_similarity"] = event[
+                "matched_template_similarity"
+            ]
         if len(self.templates) == self.window_size:
             input_templates = torch.stack(tuple(self.templates)).unsqueeze(0).to(self.device)
             input_parameters = torch.stack(tuple(self.parameters)).unsqueeze(0).to(self.device)
