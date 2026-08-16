@@ -1,9 +1,11 @@
 from collections import deque
+from pathlib import Path
 
 import torch
 import torch.nn.functional as F
 from drain3 import TemplateMiner
 from drain3.file_persistence import FilePersistence
+from drain3.template_miner_config import TemplateMinerConfig
 
 from drain import Drain
 from ingest import postprocess_ssh, preprocess_ssh
@@ -26,7 +28,9 @@ class LogGenerator:
     ) -> None:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.window_size = window_size
-        miner = TemplateMiner(FilePersistence(miner_state))
+        config = TemplateMinerConfig()
+        config.load(str(Path(__file__).with_name("drain3.ini")))
+        miner = TemplateMiner(FilePersistence(miner_state), config)
         self.preprocesser = preprocesser
         template_encoder = Itemplate2Vec(device=self.device)
         self.drain = Drain(miner, miner_state, preprocesser, postprocesser, template_encoder)

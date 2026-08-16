@@ -1,0 +1,15 @@
+[Unit]
+Description=HongShaoNiuRouMian SSH log tailer
+After=hongshaoniuroumian-api.service
+
+[Service]
+User=ubuntu
+SupplementaryGroups=systemd-journal
+WorkingDirectory=/opt/hongshaoniuroumian
+EnvironmentFile=/etc/hongshaoniuroumian/ec2.env
+ExecStart=/opt/hongshaoniuroumian/.venv/bin/python deploy/ec2_log_tailer.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

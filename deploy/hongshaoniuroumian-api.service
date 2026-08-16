@@ -1,0 +1,14 @@
+[Unit]
+Description=HongShaoNiuRouMian dashboard API
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/opt/hongshaoniuroumian
+EnvironmentFile=/etc/hongshaoniuroumian/ec2.env
+ExecStart=/opt/hongshaoniuroumian/.venv/bin/fastapi run deploy/ec2_dashboard_api.py --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

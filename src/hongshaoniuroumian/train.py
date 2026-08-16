@@ -40,7 +40,9 @@ final_model_path = Path("../../data/bruh-final_model.pt")
 
 # technically, this can stay in dataset.py, as thats where input and output vectors are vectorized
 # however, keepinig it here for now for debugging
-miner=TemplateMiner(FilePersistence(miner_persistence_path))
+miner_config = TemplateMinerConfig()
+miner_config.load(str(Path(__file__).with_name("drain3.ini")))
+miner = TemplateMiner(FilePersistence(miner_persistence_path), miner_config)
 drain = Drain(miner, miner_persistence_path, preprocess_bruh, postprocess_bruh)
 
 dataset = drain.build_dataset(get_logs("../../data/bruh.log"))
