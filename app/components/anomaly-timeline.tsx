@@ -46,23 +46,24 @@ export function AnomalyTimeline() {
   }, [])
 
   const data = useMemo(() => {
-    const intervalMilliseconds = 30 * 60 * 1_000
+    const intervalMilliseconds = 1_000
     const bucketsByTime = new Map(
-      intervals.map((interval) => [interval.interval_start.slice(0, 16), interval]),
+      intervals.map((interval) => [interval.interval_start.slice(0, 19), interval]),
     )
-    const start = intervals.length
-      ? new Date(intervals[0].interval_start).getTime()
+    const latest = intervals.length
+      ? new Date(intervals.at(-1)!.interval_start).getTime()
       : Math.floor(Date.now() / intervalMilliseconds) * intervalMilliseconds
+    const start = latest - 95 * intervalMilliseconds
 
     return Array.from({ length: 96 }, (_, index) => {
       const date = new Date(start + index * intervalMilliseconds)
-      const bucket = bucketsByTime.get(date.toISOString().slice(0, 16))
+      const bucket = bucketsByTime.get(date.toISOString().slice(0, 19))
       const hour = date.getHours()
       return {
         time: date.toISOString(),
         label: hour === 0 && date.getMinutes() === 0
           ? `${date.toLocaleDateString([], { weekday: "short" })} ${date.getDate()}`
-          : `${String(hour).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`,
+          : `${String(hour).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`,
         normal: bucket?.normal_logs ?? 0,
         abnormal: bucket?.abnormal_logs ?? 0,
       }

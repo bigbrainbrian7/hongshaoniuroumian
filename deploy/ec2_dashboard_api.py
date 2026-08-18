@@ -133,6 +133,30 @@ def get_events(limit: int = 200) -> list[dict]:
     return [dict(row) for row in reversed(rows)]
 
 
+@app.get("/api/events/anomalies")
+def get_anomalous_events(
+    start: str,
+    end: str,
+    threshold: float = 0.95,
+    limit: int = 1_000,
+) -> list[dict]:
+    limit = min(max(limit, 1), 5_000)
+    with connection() as database:
+        rows = database.execute(
+            """
+            SELECT * FROM events
+            WHERE recorded_at >= ?
+              AND recorded_at <= ?
+              AND scored = 1
+              AND template_similarity < ?
+            ORDER BY recorded_at
+            LIMIT ?
+            """,
+            (start, end, threshold, limit),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
 @app.get("/api/metrics/anomalies-per-hour")
 def anomalies_per_hour(threshold: float = 0.95, hours: int = 24) -> list[dict]:
     hours = min(max(hours, 1), 24 * 90)
@@ -161,9 +185,7 @@ def events_per_interval(threshold: float = 0.95, hours: int = 48) -> list[dict]:
         rows = database.execute(
             """
             SELECT
-                substr(recorded_at, 1, 14) ||
-                    CASE WHEN CAST(substr(recorded_at, 15, 2) AS INTEGER) < 30
-                        THEN '00:00Z' ELSE '30:00Z' END AS interval_start,
+                substr(recorded_at, 1, 19) || 'Z' AS interval_start,
                 SUM(CASE WHEN scored = 1 AND template_similarity < ? THEN 0 ELSE 1 END) AS normal_logs,
                 SUM(CASE WHEN scored = 1 AND template_similarity < ? THEN 1 ELSE 0 END) AS abnormal_logs
             FROM events

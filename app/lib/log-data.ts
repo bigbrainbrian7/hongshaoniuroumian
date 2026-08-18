@@ -79,6 +79,11 @@ export type Insight = {
   axisRight: string
   ticks: [string, string]
   spark: SparkPoint[]
+  highlightStart?: number
+  highlightEnd?: number
+  peakTime?: number
+  surgeStartTime?: number
+  surgeEndTime?: number
   // for error outlier variant
   errorPct?: number
   logPct?: number

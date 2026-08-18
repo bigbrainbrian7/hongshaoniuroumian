@@ -26,6 +26,14 @@ export function getLogEvents() {
   return getJson<LogEvent[]>("/api/events?limit=200")
 }
 
-export function getLogIntervals() {
-  return getJson<LogInterval[]>("/api/metrics/events-per-interval?hours=48")
+export function getAnomalousEvents(start: number, end: number) {
+  const parameters = new URLSearchParams({
+    start: new Date(start).toISOString(),
+    end: new Date(end).toISOString(),
+  })
+  return getJson<LogEvent[]>(`/api/events/anomalies?${parameters}`)
+}
+
+export function getLogIntervals(hours = 1) {
+  return getJson<LogInterval[]>(`/api/metrics/events-per-interval?hours=${hours}`)
 }
