@@ -46,7 +46,7 @@ export function AnomalyTimeline() {
   }, [])
 
   const data = useMemo(() => {
-    const intervalMilliseconds = 1_000
+    const intervalMilliseconds = 30 * 60 * 1_000
     const bucketsByTime = new Map(
       intervals.map((interval) => [interval.interval_start.slice(0, 19), interval]),
     )
@@ -63,7 +63,7 @@ export function AnomalyTimeline() {
         time: date.toISOString(),
         label: hour === 0 && date.getMinutes() === 0
           ? `${date.toLocaleDateString([], { weekday: "short" })} ${date.getDate()}`
-          : `${String(hour).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`,
+          : `${String(hour).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`,
         normal: bucket?.normal_logs ?? 0,
         abnormal: bucket?.abnormal_logs ?? 0,
       }

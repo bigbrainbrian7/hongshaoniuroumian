@@ -185,7 +185,9 @@ def events_per_interval(threshold: float = 0.95, hours: int = 48) -> list[dict]:
         rows = database.execute(
             """
             SELECT
-                substr(recorded_at, 1, 19) || 'Z' AS interval_start,
+                strftime('%Y-%m-%dT%H:', recorded_at) ||
+                    printf('%02d:00Z', (CAST(strftime('%M', recorded_at) AS INTEGER) / 30) * 30)
+                    AS interval_start,
                 SUM(CASE WHEN scored = 1 AND template_similarity < ? THEN 0 ELSE 1 END) AS normal_logs,
                 SUM(CASE WHEN scored = 1 AND template_similarity < ? THEN 1 ELSE 0 END) AS abnormal_logs
             FROM events

@@ -149,11 +149,11 @@ function SurgeDetail({ insight, intervals, onClose }: {
   onClose: () => void
 }) {
   const peakTime = insight.peakTime ?? Date.now()
-  const sourceIntervalMilliseconds = 1_000
-  const displayIntervalMilliseconds = 2_000
+  const sourceIntervalMilliseconds = 30 * 60 * 1_000
+  const displayIntervalMilliseconds = sourceIntervalMilliseconds
   const surgeStart = insight.surgeStartTime ?? peakTime
   const surgeEnd = insight.surgeEndTime ?? peakTime
-  const surroundingMilliseconds = 20_000
+  const surroundingMilliseconds = 10 * sourceIntervalMilliseconds
   const windowStart = surgeStart - surroundingMilliseconds
   const windowEnd = surgeEnd + surroundingMilliseconds
   const columnCount = Math.ceil((windowEnd - windowStart + 1) / displayIntervalMilliseconds)
@@ -194,7 +194,7 @@ function SurgeDetail({ insight, intervals, onClose }: {
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
             <p className="text-sm font-semibold text-foreground">Log anomaly surge</p>
-            <p className="text-xs text-muted-foreground">Abnormal logs in two-second bins around the detected surge</p>
+            <p className="text-xs text-muted-foreground">Abnormal logs in 30-minute bins around the detected surge</p>
           </div>
           <button className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={onClose} type="button" aria-label="Close log anomaly surge">
             <X className="size-4" />
@@ -249,13 +249,13 @@ function formatAgo(timestamp: number) {
 function findAnomalySurge(intervals: LogInterval[]): Insight | null {
   if (!intervals.length) return null
 
-  const intervalMilliseconds = 1_000
+  const intervalMilliseconds = 30 * 60 * 1_000
   const bucketsByTime = new Map(
     intervals.map((interval) => [interval.interval_start.slice(0, 19), interval]),
   )
   const latest = new Date(intervals.at(-1)!.interval_start).getTime()
-  const start = latest - 299 * intervalMilliseconds
-  const samples = Array.from({ length: 300 }, (_, index) => {
+  const start = latest - 95 * intervalMilliseconds
+  const samples = Array.from({ length: 96 }, (_, index) => {
     const time = start + index * intervalMilliseconds
     return {
       time,
@@ -320,8 +320,8 @@ function findAnomalySurge(intervals: LogInterval[]): Insight | null {
   const highlightedStart = Math.max(0, highlightedSampleStart - sparkStart)
   const highlightedEnd = Math.min(spark.length - 1, highlightedSampleEnd - sparkStart)
   const peakTime = samples[peak].time
-  const tickStart = new Date(samples[sparkStart].time).toLocaleTimeString()
-  const tickEnd = new Date(samples[Math.min(samples.length - 1, sparkStart + 39)].time).toLocaleTimeString()
+  const tickStart = new Date(samples[sparkStart].time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  const tickEnd = new Date(samples[Math.min(samples.length - 1, sparkStart + 39)].time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 
   return {
     id: "live-surge",
