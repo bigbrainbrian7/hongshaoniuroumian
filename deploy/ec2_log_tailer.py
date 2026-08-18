@@ -7,6 +7,7 @@ import requests
 
 JOURNAL_UNIT = os.environ.get("SSH_JOURNAL_UNIT", "ssh.service")
 INGEST_URL = os.environ.get("EC2_INGEST_URL", "http://127.0.0.1:8000/api/ingest")
+REQUEST_TIMEOUT_SECONDS = float(os.environ.get("REQUEST_TIMEOUT_SECONDS", "1800"))
 
 
 def follow_journal(unit: str):
@@ -37,7 +38,11 @@ def main() -> None:
         if not line:
             continue
         try:
-            response = requests.post(INGEST_URL, json={"line": line}, timeout=30)
+            response = requests.post(
+                INGEST_URL,
+                json={"line": line},
+                timeout=REQUEST_TIMEOUT_SECONDS,
+            )
             response.raise_for_status()
         except requests.RequestException as error:
             print(f"failed to ingest log line: {error}")

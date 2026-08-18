@@ -16,10 +16,10 @@ htmlcov/
 *.pth
 
 # Frontend build artifacts
-web/node_modules/
-web/dist/
-web/.vite/
-web/*.tsbuildinfo
+**/node_modules/
+**/dist/
+**/.vite/
+**/*.tsbuildinfo
 
 # Local configuration
 .env

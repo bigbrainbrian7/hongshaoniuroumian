@@ -10,14 +10,29 @@ from pydantic import BaseModel, Field
 
 PROJECT_SOURCE = Path(__file__).parents[1] / "src" / "hongshaoniuroumian"
 MODEL_DIRECTORY = "/models"
+TEMPLATE_MODEL = "bert-base-uncased"
 MODEL_VOLUME = modal.Volume.from_name(
     "hongshaoniuroumian-models",
     create_if_missing=True,
 )
 MODEL_SECRET = modal.Secret.from_name("hongshaoniuroumian-modal")
+
+
+def download_template_encoder(model_name: str) -> None:
+    from transformers import AutoModel, AutoTokenizer
+
+    AutoTokenizer.from_pretrained(model_name)
+    AutoModel.from_pretrained(model_name)
+
+
 IMAGE = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install("fastapi", "torch", "transformers", "drain3")
+    .run_function(
+        download_template_encoder,
+        kwargs={"model_name": TEMPLATE_MODEL},
+    )
+    .env({"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"})
     .add_local_dir(PROJECT_SOURCE, remote_path="/app")
 )
 app = modal.App("hongshaoniuroumian-inference")
@@ -31,8 +46,11 @@ class ScoreRequest(BaseModel):
 
 @app.cls(
     image=IMAGE,
-    gpu="T4",
-    timeout=300,
+    cpu=1,
+    memory=4096,
+    max_containers=1,
+    scaledown_window=2,
+    timeout=1800,
     volumes={MODEL_DIRECTORY: MODEL_VOLUME},
     secrets=[MODEL_SECRET],
 )

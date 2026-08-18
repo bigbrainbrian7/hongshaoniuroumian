@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 DATABASE_PATH = Path(os.environ.get("DATABASE_PATH", "/var/lib/hongshaoniuroumian/events.db"))
 MODAL_SCORE_URL = os.environ.get("MODAL_SCORE_URL", "")
 INGEST_API_KEY = os.environ.get("INGEST_API_KEY", "")
+REQUEST_TIMEOUT_SECONDS = float(os.environ.get("REQUEST_TIMEOUT_SECONDS", "1800"))
 WINDOW_SIZE = 100
 
 
@@ -55,7 +56,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="HongShaoNiuRouMian EC2 Dashboard API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.environ.get("DASHBOARD_ORIGIN", "http://localhost:5173").split(","),
+    allow_origins=os.environ.get("DASHBOARD_ORIGIN", "*").split(","),
     allow_methods=["GET"],
     allow_headers=["*"],
 )
@@ -85,7 +86,7 @@ def score_event(history_lines: list[str], line: str) -> dict:
                 "history_lines": history_lines,
                 "line": line,
             },
-            timeout=30,
+            timeout=REQUEST_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
         return response.json()
