@@ -12,7 +12,7 @@ export default function Page() {
           <div>
             <h1 className="text-lg font-semibold text-foreground">Logs</h1>
             <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Service:web-store</span>
+              <span className="font-medium text-foreground">Service:openssh</span>
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-sm">

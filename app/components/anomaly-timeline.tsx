@@ -27,6 +27,13 @@ function formatCount(value: number) {
   return countFormatter.format(value)
 }
 
+function formatTimelineLabel(date: Date) {
+  const hour = date.getHours()
+  return hour === 0 && date.getMinutes() === 0
+    ? `${date.toLocaleDateString([], { weekday: "short" })} ${date.getDate()}`
+    : `${String(hour).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`
+}
+
 // Only show a subset of x labels to mimic the reference (every ~6th bar / 3h)
 export function AnomalyTimeline() {
   const [intervals, setIntervals] = useState<LogInterval[]>([])
@@ -46,7 +53,7 @@ export function AnomalyTimeline() {
   }, [])
 
   const data = useMemo(() => {
-    const intervalMilliseconds = 30 * 60 * 1_000
+    const intervalMilliseconds = 60 * 60 * 1_000
     const bucketsByTime = new Map(
       intervals.map((interval) => [interval.interval_start.slice(0, 19), interval]),
     )
@@ -58,12 +65,9 @@ export function AnomalyTimeline() {
     return Array.from({ length: 96 }, (_, index) => {
       const date = new Date(start + index * intervalMilliseconds)
       const bucket = bucketsByTime.get(date.toISOString().slice(0, 19))
-      const hour = date.getHours()
       return {
         time: date.toISOString(),
-        label: hour === 0 && date.getMinutes() === 0
-          ? `${date.toLocaleDateString([], { weekday: "short" })} ${date.getDate()}`
-          : `${String(hour).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`,
+        label: formatTimelineLabel(date),
         normal: bucket?.normal_logs ?? 0,
         abnormal: bucket?.abnormal_logs ?? 0,
       }
@@ -89,7 +93,7 @@ export function AnomalyTimeline() {
             tickFormatter={formatCount}
           />
           <XAxis
-            dataKey="label"
+            dataKey="time"
             axisLine={{ stroke: "var(--border)" }}
             tickLine={false}
             interval={0}
@@ -105,7 +109,7 @@ export function AnomalyTimeline() {
                   fontSize={11}
                   fill="var(--muted-foreground)"
                 >
-                  {payload.value}
+                  {formatTimelineLabel(new Date(payload.value))}
                 </text>
               )
             }}

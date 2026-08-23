@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 
 import requests
@@ -16,10 +16,14 @@ REQUEST_TIMEOUT_SECONDS = float(os.environ.get("REQUEST_TIMEOUT_SECONDS", "1800"
 WINDOW_SIZE = 100
 
 
-def connection() -> sqlite3.Connection:
+@contextmanager
+def connection():
     database = sqlite3.connect(DATABASE_PATH)
     database.row_factory = sqlite3.Row
-    return database
+    try:
+        yield database
+    finally:
+        database.close()
 
 
 def initialize_database() -> None:
@@ -185,9 +189,7 @@ def events_per_interval(threshold: float = 0.95, hours: int = 48) -> list[dict]:
         rows = database.execute(
             """
             SELECT
-                strftime('%Y-%m-%dT%H:', recorded_at) ||
-                    printf('%02d:00Z', (CAST(strftime('%M', recorded_at) AS INTEGER) / 30) * 30)
-                    AS interval_start,
+                substr(recorded_at, 1, 13) || ':00:00Z' AS interval_start,
                 SUM(CASE WHEN scored = 1 AND template_similarity < ? THEN 0 ELSE 1 END) AS normal_logs,
                 SUM(CASE WHEN scored = 1 AND template_similarity < ? THEN 1 ELSE 0 END) AS abnormal_logs
             FROM events

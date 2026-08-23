@@ -7,11 +7,19 @@ import { ChartContainer, type ChartConfig } from "@/components/ui/chart"
 import { insights, type Insight } from "@/lib/log-data"
 import { getAnomalousEvents, getLogIntervals, type LogEvent, type LogInterval } from "@/lib/ec2-api"
 import { ErrorDensityInsight } from "@/components/error-density"
+import { InsightDetail } from "@/components/insight-detail"
 import { cn } from "@/lib/utils"
 
 const sparkConfig = {
   value: { label: "Anomalies", color: "var(--abnormal)" },
 } satisfies ChartConfig
+
+function formatTimelineLabel(date: Date) {
+  const hour = date.getHours()
+  return hour === 0 && date.getMinutes() === 0
+    ? `${date.toLocaleDateString([], { weekday: "short" })} ${date.getDate()}`
+    : `${String(hour).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`
+}
 
 function StatusPill({ status }: { status: Insight["status"] }) {
   return (
@@ -149,7 +157,7 @@ function SurgeDetail({ insight, intervals, onClose }: {
   onClose: () => void
 }) {
   const peakTime = insight.peakTime ?? Date.now()
-  const sourceIntervalMilliseconds = 30 * 60 * 1_000
+  const sourceIntervalMilliseconds = 60 * 60 * 1_000
   const displayIntervalMilliseconds = sourceIntervalMilliseconds
   const surgeStart = insight.surgeStartTime ?? peakTime
   const surgeEnd = insight.surgeEndTime ?? peakTime
@@ -168,10 +176,12 @@ function SurgeDetail({ insight, intervals, onClose }: {
     )
     return {
       time,
-      label: new Date(time).toLocaleTimeString([], { minute: "2-digit", second: "2-digit" }),
       abnormal: counts.reduce((sum, count) => sum + (count?.abnormal_logs ?? 0), 0),
     }
   })
+  const shownTickIndexes = new Set(
+    columns.map((_, index) => index).filter((index) => index % 6 === 0),
+  )
   const highlightedStart = Math.max(
     0,
     Math.floor((surgeStart - windowStart) / displayIntervalMilliseconds),
@@ -194,7 +204,7 @@ function SurgeDetail({ insight, intervals, onClose }: {
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
             <p className="text-sm font-semibold text-foreground">Log anomaly surge</p>
-            <p className="text-xs text-muted-foreground">Abnormal logs in 30-minute bins around the detected surge</p>
+            <p className="text-xs text-muted-foreground">Abnormal logs in one-hour bins around the detected surge</p>
           </div>
           <button className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={onClose} type="button" aria-label="Close log anomaly surge">
             <X className="size-4" />
@@ -204,9 +214,24 @@ function SurgeDetail({ insight, intervals, onClose }: {
           <div className="min-w-0">
             <ChartContainer config={{ abnormal: { label: "Abnormal", color: "var(--abnormal)" } }} className="h-[300px] w-full">
               <BarChart data={columns} barCategoryGap="4%" barGap={0} margin={{ top: 8, right: 8, left: 2, bottom: 16 }}>
-                <XAxis dataKey="label" interval="preserveStartEnd" tickLine={false} tickMargin={8} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
+                <XAxis
+                  dataKey="time"
+                  interval={0}
+                  axisLine={{ stroke: "var(--border)" }}
+                  tickLine={false}
+                  tickMargin={8}
+                  tick={(props) => {
+                    const { x, y, payload, index } = props
+                    if (!shownTickIndexes.has(index)) return <g />
+                    return (
+                      <text x={x} y={Number(y) + 12} textAnchor="middle" fontSize={10} fill="var(--muted-foreground)">
+                        {formatTimelineLabel(new Date(payload.value))}
+                      </text>
+                    )
+                  }}
+                />
                 <YAxis hide />
-                <ReferenceArea x1={columns[highlightedStart]?.label} x2={columns[highlightedEnd]?.label} fill="var(--watchdog)" fillOpacity={0.06} stroke="var(--watchdog)" strokeDasharray="4 3" />
+                <ReferenceArea x1={columns[highlightedStart]?.time} x2={columns[highlightedEnd]?.time} fill="var(--watchdog)" fillOpacity={0.06} stroke="var(--watchdog)" strokeDasharray="4 3" />
                 <Bar dataKey="abnormal" fill="var(--color-abnormal)" />
               </BarChart>
             </ChartContainer>
@@ -231,11 +256,55 @@ function SurgeDetail({ insight, intervals, onClose }: {
 
 function LiveSurgeInsight({ insight, intervals }: { insight: Insight; intervals: LogInterval[] }) {
   const [open, setOpen] = useState(false)
+  const [nearbyAnomalies, setNearbyAnomalies] = useState<LogEvent[]>([])
+  const peakTime = insight.peakTime ?? Date.now()
+  const surgeStart = insight.surgeStartTime ?? peakTime
+  const surgeEnd = insight.surgeEndTime ?? peakTime
+  const surroundingMilliseconds = 10 * 60 * 60 * 1_000
+
+  useEffect(() => {
+    if (!open) return
+
+    void getAnomalousEvents(
+      surgeStart - surroundingMilliseconds,
+      surgeEnd + surroundingMilliseconds,
+    ).then(setNearbyAnomalies).catch(() => setNearbyAnomalies([]))
+  }, [open, surgeStart, surgeEnd])
 
   return (
     <>
       <InsightCard insight={insight} onClick={() => setOpen(true)} />
-      {open && <SurgeDetail insight={insight} intervals={intervals} onClose={() => setOpen(false)} />}
+      <InsightDetail insight={open ? insight : null} events={nearbyAnomalies} onClose={() => setOpen(false)} />
+    </>
+  )
+}
+
+function HistoricalLogInsight({ insight }: { insight: Insight }) {
+  const [open, setOpen] = useState(false)
+  const [nearbyAnomalies, setNearbyAnomalies] = useState<LogEvent[]>([])
+
+  useEffect(() => {
+    if (!open) return
+
+    void getAnomalousEvents(Date.now() - 96 * 60 * 60 * 1_000, Date.now())
+      .then(setNearbyAnomalies)
+      .catch(() => setNearbyAnomalies([]))
+  }, [open])
+
+  const latestEventTime = nearbyAnomalies.length
+    ? new Date(nearbyAnomalies.at(-1)!.recorded_at).getTime()
+    : Date.now()
+  const detailInsight = {
+    ...insight,
+    peakTime: latestEventTime,
+    surgeStartTime: latestEventTime - 60 * 60 * 1_000,
+    surgeEndTime: latestEventTime,
+  }
+
+  return (
+    <>
+      <InsightCard insight={insight} onClick={() => setOpen(true)} />
+      <InsightDetail insight={open ? detailInsight : null} events={nearbyAnomalies} onClose={() => setOpen(false)} />
     </>
   )
 }
@@ -243,19 +312,24 @@ function LiveSurgeInsight({ insight, intervals }: { insight: Insight; intervals:
 function formatAgo(timestamp: number) {
   const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1_000))
   if (seconds < 60) return `${seconds}s AGO`
-  return `${Math.floor(seconds / 60)}m AGO`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m AGO`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h AGO`
+  return `${Math.floor(hours / 24)}d ${hours % 24}h AGO`
 }
 
-function findAnomalySurge(intervals: LogInterval[]): Insight | null {
-  if (!intervals.length) return null
+function findAnomalySurges(intervals: LogInterval[]): Insight[] {
+  if (!intervals.length) return []
 
-  const intervalMilliseconds = 30 * 60 * 1_000
+  const intervalMilliseconds = 60 * 60 * 1_000
   const bucketsByTime = new Map(
     intervals.map((interval) => [interval.interval_start.slice(0, 19), interval]),
   )
   const latest = new Date(intervals.at(-1)!.interval_start).getTime()
-  const start = latest - 95 * intervalMilliseconds
-  const samples = Array.from({ length: 96 }, (_, index) => {
+  // Watchdog cards favor recent activity over the largest spike in the full timeline.
+  const start = latest - 47 * intervalMilliseconds
+  const samples = Array.from({ length: 48 }, (_, index) => {
     const time = start + index * intervalMilliseconds
     return {
       time,
@@ -269,12 +343,23 @@ function findAnomalySurge(intervals: LogInterval[]): Insight | null {
   const deviation = Math.sqrt(
     rolling.reduce((sum, value) => sum + (value - average) ** 2, 0) / rolling.length,
   )
-  const peak = rolling.reduce(
-    (best, value, index) => value > rolling[best] ? index : best,
-    0,
-  )
-  const threshold = Math.max(2, average + 2 * deviation)
-  if (rolling[peak] < threshold) return null
+  const threshold = Math.max(2, average + 1.5 * deviation)
+  const peaks = rolling
+    .map((value, index) => ({ value, index }))
+    .filter(({ value, index }) =>
+      value >= threshold &&
+      value >= (rolling[index - 1] ?? Number.NEGATIVE_INFINITY) &&
+      value > (rolling[index + 1] ?? Number.NEGATIVE_INFINITY),
+    )
+    .sort((left, right) => right.index - left.index)
+    .reduce<number[]>((selected, { index }) => {
+      if (selected.length < 2 && selected.every((peak) => Math.abs(peak - index) > 10)) {
+        selected.push(index)
+      }
+      return selected
+    }, [])
+
+  if (!peaks.length) return []
 
   const smoothed = rolling.map((_, index) => {
     const values = rolling.slice(Math.max(0, index - 1), Math.min(rolling.length, index + 2))
@@ -282,63 +367,65 @@ function findAnomalySurge(intervals: LogInterval[]): Insight | null {
   })
   const decayThreshold = Math.max(1, average + deviation * 0.75)
   const quietSeconds = 7
-  let surgeStart = peak
-  let surgeEnd = peak
+  return peaks.map((peak) => {
+    let surgeStart = peak
+    let surgeEnd = peak
 
-  // Short gaps and single noisy values should not split the same burst.
-  for (let index = peak - 1, quiet = 0; index >= 0; index -= 1) {
-    quiet = smoothed[index] < decayThreshold ? quiet + 1 : 0
-    if (quiet === quietSeconds) {
-      surgeStart = index + quietSeconds
-      break
+    // Short gaps and single noisy values should not split the same burst.
+    for (let index = peak - 1, quiet = 0; index >= 0; index -= 1) {
+      quiet = smoothed[index] < decayThreshold ? quiet + 1 : 0
+      if (quiet === quietSeconds) {
+        surgeStart = index + quietSeconds
+        break
+      }
+      surgeStart = index
     }
-    surgeStart = index
-  }
-  for (let index = peak + 1, quiet = 0; index < smoothed.length; index += 1) {
-    quiet = smoothed[index] < decayThreshold ? quiet + 1 : 0
-    if (quiet === quietSeconds) {
-      surgeEnd = index - quietSeconds
-      break
+    for (let index = peak + 1, quiet = 0; index < smoothed.length; index += 1) {
+      quiet = smoothed[index] < decayThreshold ? quiet + 1 : 0
+      if (quiet === quietSeconds) {
+        surgeEnd = index - quietSeconds
+        break
+      }
+      surgeEnd = index
     }
-    surgeEnd = index
-  }
 
-  let highlightedSampleStart = Math.max(0, surgeStart - 9)
-  let highlightedSampleEnd = surgeEnd
-  while (highlightedSampleStart < highlightedSampleEnd && samples[highlightedSampleStart].value === 0) {
-    highlightedSampleStart += 1
-  }
-  while (highlightedSampleEnd > highlightedSampleStart && samples[highlightedSampleEnd].value === 0) {
-    highlightedSampleEnd -= 1
-  }
+    let highlightedSampleStart = Math.max(0, surgeStart - 9)
+    let highlightedSampleEnd = surgeEnd
+    while (highlightedSampleStart < highlightedSampleEnd && samples[highlightedSampleStart].value === 0) {
+      highlightedSampleStart += 1
+    }
+    while (highlightedSampleEnd > highlightedSampleStart && samples[highlightedSampleEnd].value === 0) {
+      highlightedSampleEnd -= 1
+    }
 
-  const sparkStart = Math.max(0, peak - 20)
-  const spark = samples.slice(sparkStart, sparkStart + 40).map((sample, index) => ({
-    i: index,
-    value: sample.value,
-  }))
-  const highlightedStart = Math.max(0, highlightedSampleStart - sparkStart)
-  const highlightedEnd = Math.min(spark.length - 1, highlightedSampleEnd - sparkStart)
-  const peakTime = samples[peak].time
-  const tickStart = new Date(samples[sparkStart].time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  const tickEnd = new Date(samples[Math.min(samples.length - 1, sparkStart + 39)].time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    const sparkStart = Math.max(0, peak - 20)
+    const spark = samples.slice(sparkStart, sparkStart + 40).map((sample, index) => ({
+      i: index,
+      value: sample.value,
+    }))
+    const highlightedStart = Math.max(0, highlightedSampleStart - sparkStart)
+    const highlightedEnd = Math.min(spark.length - 1, highlightedSampleEnd - sparkStart)
+    const peakTime = samples[peak].time
+    const tickStart = new Date(samples[sparkStart].time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    const tickEnd = new Date(samples[Math.min(samples.length - 1, sparkStart + 39)].time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 
-  return {
-    id: "live-surge",
-    type: "LOG ANOMALY",
-    service: "openssh",
-    status: latest - peakTime <= 10_000 ? "ONGOING" : "RESOLVED",
-    ago: formatAgo(peakTime),
-    axisLeft: String(Math.max(...spark.map((point) => point.value))),
-    axisRight: "0",
-    ticks: [tickStart, tickEnd],
-    spark,
-    highlightStart: highlightedStart,
-    highlightEnd: highlightedEnd,
-    peakTime,
-    surgeStartTime: samples[highlightedSampleStart].time,
-    surgeEndTime: samples[highlightedSampleEnd].time,
-  }
+    return {
+      id: `live-surge-${peakTime}`,
+      type: "LOG ANOMALY",
+      service: "openssh",
+      status: latest - peakTime <= intervalMilliseconds ? "ONGOING" : "RESOLVED",
+      ago: formatAgo(peakTime),
+      axisLeft: String(Math.max(...spark.map((point) => point.value))),
+      axisRight: "0",
+      ticks: [tickStart, tickEnd],
+      spark,
+      highlightStart: highlightedStart,
+      highlightEnd: highlightedEnd,
+      peakTime,
+      surgeStartTime: samples[highlightedSampleStart].time,
+      surgeEndTime: samples[highlightedSampleEnd].time,
+    }
+  })
 }
 
 export function WatchdogInsights() {
@@ -358,10 +445,8 @@ export function WatchdogInsights() {
     return () => window.clearInterval(timer)
   }, [])
 
-  const liveSurge = useMemo(() => findAnomalySurge(intervals), [intervals])
-  const displayedInsights = liveSurge
-    ? [liveSurge, ...insights.slice(1)]
-    : insights.slice(1)
+  const liveSurges = useMemo(() => findAnomalySurges(intervals), [intervals])
+  const displayedInsights = [...liveSurges, ...insights.slice(2)]
 
   return (
     <div className="rounded-lg border border-dashed border-watchdog/60 p-4">
@@ -378,9 +463,9 @@ export function WatchdogInsights() {
 
       <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
         {displayedInsights.map((insight) => {
-          if (insight.id === "live-surge") return <LiveSurgeInsight key={insight.id} insight={insight} intervals={intervals} />
+          if (insight.id.startsWith("live-surge-")) return <LiveSurgeInsight key={insight.id} insight={insight} intervals={intervals} />
           if (insight.type === "ERROR OUTLIER") return <ErrorDensityInsight key={insight.id} />
-          return <InsightCard key={insight.id} insight={insight} />
+          return <HistoricalLogInsight key={insight.id} insight={insight} />
         })}
       </div>
     </div>

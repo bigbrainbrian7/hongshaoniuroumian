@@ -14,7 +14,8 @@ export type LogInterval = {
   abnormal_logs: number
 }
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "")
+// const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "")
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://13.220.218.111:6767").replace(/\/$/, "")
 
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${apiUrl}${path}`)
@@ -34,6 +35,6 @@ export function getAnomalousEvents(start: number, end: number) {
   return getJson<LogEvent[]>(`/api/events/anomalies?${parameters}`)
 }
 
-export function getLogIntervals(hours = 1) {
+export function getLogIntervals(hours = 96) {
   return getJson<LogInterval[]>(`/api/metrics/events-per-interval?hours=${hours}`)
 }
