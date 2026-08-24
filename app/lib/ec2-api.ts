@@ -20,8 +20,7 @@ export type LogSummary = {
   anomalies: number
 }
 
-// const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "")
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://13.220.218.111:6767").replace(/\/$/, "")
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "/dashboard-api").replace(/\/$/, "")
 
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${apiUrl}${path}`)
