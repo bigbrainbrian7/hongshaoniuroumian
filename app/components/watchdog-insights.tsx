@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { Bar, BarChart, ReferenceArea, XAxis, YAxis } from "recharts"
-import { ChevronDown, ScanSearch, X } from "lucide-react"
+import { X } from "lucide-react"
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart"
 import { insights, type Insight } from "@/lib/log-data"
 import { getAnomalousEvents, getLogIntervals, type LogEvent, type LogInterval } from "@/lib/ec2-api"
@@ -126,13 +126,6 @@ function InsightCard({ insight, onClick }: { insight: Insight; onClick?: () => v
       <div className="text-[11px] font-semibold tracking-wide text-muted-foreground">
         {insight.type}
       </div>
-      <div className="mt-2 flex items-center gap-1 text-sm">
-        <span className="text-muted-foreground">service:</span>
-        <span className="rounded bg-normal/20 px-1.5 py-0.5 font-medium text-foreground">
-          {insight.service}
-        </span>
-      </div>
-
       <div className="flex-1">
         {insight.type === "ERROR OUTLIER" ? (
           <ErrorOutlier insight={insight} />
@@ -449,16 +442,10 @@ export function WatchdogInsights() {
   const displayedInsights = [...liveSurges, ...insights.slice(2)]
 
   return (
-    <div className="rounded-lg border border-dashed border-watchdog/60 p-4">
+    <div className="rounded-lg border border-border p-4">
       <div className="flex items-center gap-2">
-        <ChevronDown className="size-4 text-muted-foreground" />
-        <span className="flex size-6 items-center justify-center rounded bg-watchdog text-[11px] font-bold text-white">
-          {displayedInsights.length}
-        </span>
-        <ScanSearch className="size-4 text-watchdog" />
         <span className="text-sm font-semibold text-foreground">Watchdog Insights</span>
         <span className="text-sm text-muted-foreground">Log anomalies and error outliers</span>
-        <button className="ml-1 text-sm font-medium text-link hover:underline">View all</button>
       </div>
 
       <div className="mt-4 flex gap-3 overflow-x-auto pb-1">

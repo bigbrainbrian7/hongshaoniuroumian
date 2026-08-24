@@ -1,9 +1,25 @@
-import { Download, Settings, Upload } from "lucide-react"
+"use client"
+
+import { useCallback, useState } from "react"
 import { AnomalyTimeline } from "@/components/anomaly-timeline"
 import { WatchdogInsights } from "@/components/watchdog-insights"
 import { LogTable } from "@/components/log-table"
+import { LogsFound } from "@/components/logs-found"
 
 export default function Page() {
+  const [hours, setHours] = useState(96)
+  const [timelineRange, setTimelineRange] = useState<{ start: number; end: number } | null>(null)
+  const updateTimelineRange = useCallback((range: { start: number; end: number } | null) => {
+    setTimelineRange(range)
+  }, [])
+  const rangeFormatter = new Intl.DateTimeFormat([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-[1400px] px-4 py-6">
@@ -11,15 +27,24 @@ export default function Page() {
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-lg font-semibold text-foreground">Logs</h1>
-            <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Service:openssh</span>
-            </p>
           </div>
           <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-sm">
-            <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
-              2d
+            <select
+              aria-label="Timeline range"
+              className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground outline-none"
+              value={hours}
+              onChange={(event) => setHours(Number(event.target.value))}
+            >
+              <option value={24}>24h</option>
+              <option value={48}>48h</option>
+              <option value={96}>4d</option>
+              <option value={168}>7d</option>
+            </select>
+            <span className="text-foreground">
+              {timelineRange
+                ? `${rangeFormatter.format(timelineRange.start)} – ${rangeFormatter.format(timelineRange.end)}`
+                : "No logs in selected range"}
             </span>
-            <span className="text-foreground">Apr 3, 10:13 am – Apr 5, 10:28 am</span>
           </div>
         </header>
 
@@ -38,22 +63,11 @@ export default function Page() {
               </span>
             </div>
           </div>
-          <AnomalyTimeline />
+          <AnomalyTimeline hours={hours} onRangeChange={updateTimelineRange} />
         </section>
 
-        {/* Controls row */}
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground">9,162,518</span> logs found
-          </p>
-          <div className="flex items-center gap-2">
-            <button className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground hover:bg-muted">
-              <Upload className="size-4" /> Export
-            </button>
-            <button className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground hover:bg-muted">
-              <Settings className="size-4" /> Options
-            </button>
-          </div>
+        <div className="mb-3 border-b border-border pb-3 pl-1">
+          <LogsFound />
         </div>
 
         {/* Watchdog insights */}

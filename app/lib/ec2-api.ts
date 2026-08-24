@@ -14,6 +14,12 @@ export type LogInterval = {
   abnormal_logs: number
 }
 
+export type LogSummary = {
+  total_events: number
+  scored_events: number
+  anomalies: number
+}
+
 // const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "")
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://13.220.218.111:6767").replace(/\/$/, "")
 
@@ -37,4 +43,8 @@ export function getAnomalousEvents(start: number, end: number) {
 
 export function getLogIntervals(hours = 96) {
   return getJson<LogInterval[]>(`/api/metrics/events-per-interval?hours=${hours}`)
+}
+
+export function getLogSummary() {
+  return getJson<LogSummary>("/api/metrics/summary")
 }

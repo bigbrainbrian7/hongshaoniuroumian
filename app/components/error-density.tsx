@@ -130,10 +130,6 @@ export function ErrorDensityInsight() {
         type="button"
       >
         <div className="text-[11px] font-semibold tracking-wide text-muted-foreground">ERROR OUTLIER</div>
-        <div className="mt-2 flex items-center gap-1 text-sm">
-          <span className="text-muted-foreground">service:</span>
-          <span className="rounded bg-normal/20 px-1.5 py-0.5 font-medium text-foreground">openssh</span>
-        </div>
         <div className="mt-1 h-[100px] flex-1">
           <ChartContainer config={chartConfig} className="h-full w-full">
             <AreaChart data={data} margin={{ top: 4, right: 2, left: 2, bottom: 0 }}>

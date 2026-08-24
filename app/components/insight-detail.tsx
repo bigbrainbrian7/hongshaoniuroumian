@@ -223,12 +223,8 @@ export function InsightDetail({
 
             {/* Scroll body */}
             <div className="flex-1 overflow-y-auto px-6 py-5">
-              <h2 className="flex flex-wrap items-center gap-1.5 text-base font-semibold text-foreground">
-                A spike in anomalous logs was detected on
-                <span className="text-muted-foreground">service:</span>
-                <span className="rounded bg-normal/20 px-1.5 py-0.5 font-medium text-foreground">
-                  {insight.service}
-                </span>
+              <h2 className="text-base font-semibold text-foreground">
+                A spike in anomalous logs was detected.
               </h2>
 
               {/* Timeline */}
@@ -279,16 +275,15 @@ export function InsightDetail({
               </h3>
               <div className="overflow-hidden rounded-md border border-border">
                 {/* header row */}
-                <div className="grid grid-cols-[110px_140px_90px_1fr] gap-3 border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <div className="grid grid-cols-[110px_140px_1fr] gap-3 border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   <span>Count</span>
                   <span>~Volume</span>
-                  <span>Service</span>
                   <span>Message</span>
                 </div>
                 {templatePatterns.map((p) => (
                   <div
                     key={p.id}
-                    className="grid grid-cols-[110px_140px_90px_1fr] items-center gap-3 border-l-2 border-abnormal px-3 py-3 text-sm [&:not(:last-child)]:border-b [&:not(:last-child)]:border-b-border"
+                    className="grid grid-cols-[110px_140px_1fr] items-center gap-3 border-l-2 border-abnormal px-3 py-3 text-sm [&:not(:last-child)]:border-b [&:not(:last-child)]:border-b-border"
                   >
                     {/* Count */}
                     <div>
@@ -309,8 +304,6 @@ export function InsightDetail({
                         {p.volumeLabel}
                       </span>
                     </div>
-                    {/* Service */}
-                    <span className="text-muted-foreground">{p.service}</span>
                     {/* Message */}
                     <code className="whitespace-pre-wrap break-words font-mono text-[12px] leading-relaxed text-foreground">
                       <HighlightedMessage message={p.message} />
