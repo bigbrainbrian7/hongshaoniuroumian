@@ -14,7 +14,7 @@ const nextConfig = {
     return [
       {
         source: '/dashboard-api/:path*',
-        destination: `${apiOrigin}/api/:path*`,
+        destination: `${apiOrigin}/:path*`,
       },
     ]
   },
