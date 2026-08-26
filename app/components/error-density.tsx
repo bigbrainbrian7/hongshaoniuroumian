@@ -125,7 +125,7 @@ export function ErrorDensityInsight() {
   return (
     <>
       <button
-        className="flex min-w-[280px] flex-1 cursor-pointer flex-col rounded-md border border-border bg-card p-4 text-left transition-colors hover:bg-muted/50"
+        className="flex w-[280px] shrink-0 cursor-pointer flex-col rounded-md border border-border bg-card p-4 text-left transition-colors hover:bg-muted/50"
         onClick={() => setOpen(true)}
         type="button"
       >

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Bar, BarChart, ReferenceArea, XAxis, YAxis } from "recharts"
 import { X } from "lucide-react"
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart"
-import { insights, type Insight } from "@/lib/log-data"
+import { type Insight } from "@/lib/log-data"
 import { getAnomalousEvents, getLogIntervals, type LogEvent, type LogInterval } from "@/lib/ec2-api"
 import { ErrorDensityInsight } from "@/components/error-density"
 import { InsightDetail } from "@/components/insight-detail"
@@ -113,7 +113,7 @@ function InsightCard({ insight, onClick }: { insight: Insight; onClick?: () => v
   return (
     <div
       className={cn(
-        "flex min-w-[280px] flex-1 flex-col rounded-md border border-border bg-card p-4",
+        "flex w-[280px] shrink-0 flex-col rounded-md border border-border bg-card p-4",
         onClick && "cursor-pointer transition-colors hover:bg-muted/50",
       )}
       onClick={onClick}
@@ -272,36 +272,6 @@ function LiveSurgeInsight({ insight, intervals }: { insight: Insight; intervals:
   )
 }
 
-function HistoricalLogInsight({ insight }: { insight: Insight }) {
-  const [open, setOpen] = useState(false)
-  const [nearbyAnomalies, setNearbyAnomalies] = useState<LogEvent[]>([])
-
-  useEffect(() => {
-    if (!open) return
-
-    void getAnomalousEvents(Date.now() - 96 * 60 * 60 * 1_000, Date.now())
-      .then(setNearbyAnomalies)
-      .catch(() => setNearbyAnomalies([]))
-  }, [open])
-
-  const latestEventTime = nearbyAnomalies.length
-    ? new Date(nearbyAnomalies.at(-1)!.recorded_at).getTime()
-    : Date.now()
-  const detailInsight = {
-    ...insight,
-    peakTime: latestEventTime,
-    surgeStartTime: latestEventTime - 60 * 60 * 1_000,
-    surgeEndTime: latestEventTime,
-  }
-
-  return (
-    <>
-      <InsightCard insight={insight} onClick={() => setOpen(true)} />
-      <InsightDetail insight={open ? detailInsight : null} events={nearbyAnomalies} onClose={() => setOpen(false)} />
-    </>
-  )
-}
-
 function formatAgo(timestamp: number) {
   const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1_000))
   if (seconds < 60) return `${seconds}s AGO`
@@ -319,7 +289,7 @@ function findAnomalySurges(intervals: LogInterval[]): Insight[] {
   const bucketsByTime = new Map(
     intervals.map((interval) => [interval.interval_start.slice(0, 19), interval]),
   )
-  const latest = new Date(intervals.at(-1)!.interval_start).getTime()
+  const latest = Math.floor(Date.now() / intervalMilliseconds) * intervalMilliseconds
   // Watchdog cards favor recent activity over the largest spike in the full timeline.
   const start = latest - 47 * intervalMilliseconds
   const samples = Array.from({ length: 48 }, (_, index) => {
@@ -346,7 +316,7 @@ function findAnomalySurges(intervals: LogInterval[]): Insight[] {
     )
     .sort((left, right) => right.index - left.index)
     .reduce<number[]>((selected, { index }) => {
-      if (selected.length < 2 && selected.every((peak) => Math.abs(peak - index) > 10)) {
+      if (selected.length < 3 && selected.every((peak) => Math.abs(peak - index) > 10)) {
         selected.push(index)
       }
       return selected
@@ -439,7 +409,6 @@ export function WatchdogInsights() {
   }, [])
 
   const liveSurges = useMemo(() => findAnomalySurges(intervals), [intervals])
-  const displayedInsights = [...liveSurges, ...insights.slice(2)]
 
   return (
     <div className="rounded-lg border border-border p-4">
@@ -449,11 +418,13 @@ export function WatchdogInsights() {
       </div>
 
       <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
-        {displayedInsights.map((insight) => {
-          if (insight.id.startsWith("live-surge-")) return <LiveSurgeInsight key={insight.id} insight={insight} intervals={intervals} />
-          if (insight.type === "ERROR OUTLIER") return <ErrorDensityInsight key={insight.id} />
-          return <HistoricalLogInsight key={insight.id} insight={insight} />
-        })}
+        {liveSurges.slice(0, 2).map((insight) => (
+          <LiveSurgeInsight key={insight.id} insight={insight} intervals={intervals} />
+        ))}
+        <ErrorDensityInsight />
+        {liveSurges.slice(2).map((insight) => (
+          <LiveSurgeInsight key={insight.id} insight={insight} intervals={intervals} />
+        ))}
       </div>
     </div>
   )

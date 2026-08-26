@@ -22,6 +22,7 @@ def connection():
     database.row_factory = sqlite3.Row
     try:
         yield database
+        database.commit()
     finally:
         database.close()
 

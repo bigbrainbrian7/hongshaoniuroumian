@@ -82,9 +82,7 @@ export function AnomalyTimeline({
     const bucketsByTime = new Map(
       intervals.map((interval) => [interval.interval_start.slice(0, 19), interval]),
     )
-    const latest = intervals.length
-      ? new Date(intervals.at(-1)!.interval_start).getTime()
-      : Math.floor(Date.now() / intervalMilliseconds) * intervalMilliseconds
+    const latest = Math.floor(Date.now() / intervalMilliseconds) * intervalMilliseconds
     const start = latest - (hours - 1) * intervalMilliseconds
 
     return Array.from({ length: hours }, (_, index) => {
@@ -109,12 +107,7 @@ export function AnomalyTimeline({
     })
   }, [hours, intervals])
   useEffect(() => {
-    if (!intervals.length) {
-      onRangeChange(null)
-      return
-    }
-
-    const end = new Date(intervals.at(-1)!.interval_start).getTime()
+    const end = Math.floor(Date.now() / (60 * 60 * 1_000)) * 60 * 60 * 1_000
     onRangeChange({ start: end - (hours - 1) * 60 * 60 * 1_000, end })
   }, [hours, intervals, onRangeChange])
   const shownLabels = new Set(data.map((_, index) => index).filter((index) => index % 6 === 0))

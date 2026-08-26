@@ -51,24 +51,6 @@ export function buildTimeline(): TimelineBar[] {
 
 export type SparkPoint = { i: number; value: number }
 
-function buildSpark(seed: number, shape: "ramp" | "sustained" | "spike"): SparkPoint[] {
-  const rand = mulberry32(seed)
-  const points: SparkPoint[] = []
-  const n = 40
-  for (let i = 0; i < n; i++) {
-    let value = 0
-    if (shape === "ramp") {
-      value = i < 14 ? rand() * 8 : (i - 12) * 6 + rand() * 40
-    } else if (shape === "sustained") {
-      value = i > 4 && i < 34 ? 30 + rand() * 50 : rand() * 6
-    } else {
-      value = i > 18 && i < 22 ? 60 + rand() * 40 : rand() * 4
-    }
-    points.push({ i, value: Math.max(0, value) })
-  }
-  return points
-}
-
 export type Insight = {
   id: string
   type: "LOG ANOMALY" | "ERROR OUTLIER"
@@ -88,66 +70,6 @@ export type Insight = {
   errorPct?: number
   logPct?: number
 }
-
-export const insights: Insight[] = [
-  {
-    id: "1",
-    type: "LOG ANOMALY",
-    service: "web-store",
-    status: "ONGOING",
-    ago: "1 HOUR AGO",
-    axisLeft: "500k",
-    axisRight: "0k",
-    ticks: ["08:00", "10:00"],
-    spark: buildSpark(7, "ramp"),
-  },
-  {
-    id: "2",
-    type: "LOG ANOMALY",
-    service: "web-store",
-    status: "RESOLVED",
-    ago: "1 DAY AGO",
-    axisLeft: "50k",
-    axisRight: "0k",
-    ticks: ["Mon 4", "06:00"],
-    spark: buildSpark(19, "sustained"),
-  },
-  {
-    id: "3",
-    type: "LOG ANOMALY",
-    service: "web-store",
-    status: "RESOLVED",
-    ago: "2 DAYS AGO",
-    axisLeft: "25k",
-    axisRight: "0k",
-    ticks: ["18:00", "19:00"],
-    spark: buildSpark(33, "spike"),
-  },
-  {
-    id: "4",
-    type: "ERROR OUTLIER",
-    service: "web-store",
-    status: "RESOLVED",
-    ago: "2 DAYS AGO",
-    axisLeft: "",
-    axisRight: "",
-    ticks: ["", ""],
-    spark: [],
-    errorPct: 86.9,
-    logPct: 19.1,
-  },
-  {
-    id: "5",
-    type: "LOG ANOMALY",
-    service: "web-store",
-    status: "RESOLVED",
-    ago: "3 DAYS AGO",
-    axisLeft: "25k",
-    axisRight: "0k",
-    ticks: ["18:00", "19:00"],
-    spark: buildSpark(51, "spike"),
-  },
-]
 
 export type LogRow = {
   date: string
