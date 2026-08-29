@@ -74,8 +74,8 @@ export function LogTable() {
   }, [])
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm">
+    <div className="touch-pan-x overflow-x-auto">
+      <table className="min-w-[900px] w-full border-collapse text-sm sm:min-w-full">
         <thead>
           <tr className="border-b border-border text-left text-[11px] font-semibold tracking-wide text-muted-foreground">
             <th className="py-2 pl-2 pr-4 font-semibold">
@@ -107,7 +107,7 @@ export function LogTable() {
                 <td className="py-1.5 pr-4 align-top text-foreground">
                   <span className="flex items-start gap-1">
                     <ChevronRight className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
-                    <span className="whitespace-pre-wrap break-all">
+                    <span className="whitespace-nowrap sm:whitespace-pre-wrap sm:break-all">
                       {renderContent(row.score_error ?? row.raw_line)}
                     </span>
                   </span>

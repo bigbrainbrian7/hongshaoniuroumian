@@ -49,7 +49,7 @@ function AnomalySpark({ insight }: { insight: Insight }) {
         <span>{insight.axisLeft}</span>
       </div>
       <div className="relative h-[70px]">
-        <ChartContainer config={sparkConfig} className="h-full w-full">
+        <ChartContainer config={sparkConfig} className="h-full w-full pl-3">
           <BarChart data={insight.spark} barCategoryGap={0} margin={{ top: 4, right: 2, left: 2, bottom: 0 }}>
             {start >= 0 && (
               <ReferenceArea
@@ -253,14 +253,14 @@ function LiveSurgeInsight({ insight, intervals }: { insight: Insight; intervals:
   const peakTime = insight.peakTime ?? Date.now()
   const surgeStart = insight.surgeStartTime ?? peakTime
   const surgeEnd = insight.surgeEndTime ?? peakTime
-  const surroundingMilliseconds = 10 * 60 * 60 * 1_000
 
   useEffect(() => {
     if (!open) return
 
+    setNearbyAnomalies([])
     void getAnomalousEvents(
-      surgeStart - surroundingMilliseconds,
-      surgeEnd + surroundingMilliseconds,
+      surgeStart,
+      surgeEnd,
     ).then(setNearbyAnomalies).catch(() => setNearbyAnomalies([]))
   }, [open, surgeStart, surgeEnd])
 
@@ -282,7 +282,7 @@ function formatAgo(timestamp: number) {
   return `${Math.floor(hours / 24)}d ${hours % 24}h AGO`
 }
 
-function findAnomalySurges(intervals: LogInterval[]): Insight[] {
+function findAnomalySurges(intervals: LogInterval[], hours: number): Insight[] {
   if (!intervals.length) return []
 
   const intervalMilliseconds = 60 * 60 * 1_000
@@ -290,9 +290,9 @@ function findAnomalySurges(intervals: LogInterval[]): Insight[] {
     intervals.map((interval) => [interval.interval_start.slice(0, 19), interval]),
   )
   const latest = Math.floor(Date.now() / intervalMilliseconds) * intervalMilliseconds
-  // Watchdog cards favor recent activity over the largest spike in the full timeline.
-  const start = latest - 47 * intervalMilliseconds
-  const samples = Array.from({ length: 48 }, (_, index) => {
+  const sampleCount = hours
+  const start = latest - (sampleCount - 1) * intervalMilliseconds
+  const samples = Array.from({ length: sampleCount }, (_, index) => {
     const time = start + index * intervalMilliseconds
     return {
       time,
@@ -302,11 +302,15 @@ function findAnomalySurges(intervals: LogInterval[]): Insight[] {
   const rolling = samples.map((_, index) =>
     samples.slice(Math.max(0, index - 9), index + 1).reduce((sum, sample) => sum + sample.value, 0),
   )
-  const average = rolling.reduce((sum, value) => sum + value, 0) / rolling.length
-  const deviation = Math.sqrt(
-    rolling.reduce((sum, value) => sum + (value - average) ** 2, 0) / rolling.length,
-  )
-  const threshold = Math.max(2, average + 1.5 * deviation)
+  // A mean/stddev threshold lets one extreme burst hide every smaller surge.
+  // Median-based thresholding keeps each distinct elevated cluster eligible.
+  const sortedRolling = [...rolling].sort((left, right) => left - right)
+  const median = sortedRolling[Math.floor(sortedRolling.length / 2)]
+  const deviations = rolling
+    .map((value) => Math.abs(value - median))
+    .sort((left, right) => left - right)
+  const medianAbsoluteDeviation = deviations[Math.floor(deviations.length / 2)]
+  const threshold = Math.max(2, median + 3 * medianAbsoluteDeviation)
   const peaks = rolling
     .map((value, index) => ({ value, index }))
     .filter(({ value, index }) =>
@@ -316,7 +320,7 @@ function findAnomalySurges(intervals: LogInterval[]): Insight[] {
     )
     .sort((left, right) => right.index - left.index)
     .reduce<number[]>((selected, { index }) => {
-      if (selected.length < 3 && selected.every((peak) => Math.abs(peak - index) > 10)) {
+      if (selected.length < 3 && selected.every((peak) => Math.abs(peak - index) > 3)) {
         selected.push(index)
       }
       return selected
@@ -328,7 +332,7 @@ function findAnomalySurges(intervals: LogInterval[]): Insight[] {
     const values = rolling.slice(Math.max(0, index - 1), Math.min(rolling.length, index + 2))
     return values.reduce((sum, value) => sum + value, 0) / values.length
   })
-  const decayThreshold = Math.max(1, average + deviation * 0.75)
+  const decayThreshold = Math.max(1, median + medianAbsoluteDeviation * 1.5)
   const quietSeconds = 7
   return peaks.map((peak) => {
     let surgeStart = peak
@@ -391,13 +395,13 @@ function findAnomalySurges(intervals: LogInterval[]): Insight[] {
   })
 }
 
-export function WatchdogInsights() {
+export function WatchdogInsights({ hours }: { hours: number }) {
   const [intervals, setIntervals] = useState<LogInterval[]>([])
 
   useEffect(() => {
     async function loadIntervals() {
       try {
-        setIntervals(await getLogIntervals())
+        setIntervals(await getLogIntervals(hours))
       } catch {
         setIntervals([])
       }
@@ -406,22 +410,22 @@ export function WatchdogInsights() {
     void loadIntervals()
     const timer = window.setInterval(loadIntervals, 10_000)
     return () => window.clearInterval(timer)
-  }, [])
+  }, [hours])
 
-  const liveSurges = useMemo(() => findAnomalySurges(intervals), [intervals])
+  const liveSurges = useMemo(() => findAnomalySurges(intervals, hours), [intervals, hours])
 
   return (
     <div className="rounded-lg border border-border p-4">
       <div className="flex items-center gap-2">
-        <span className="text-sm font-semibold text-foreground">Watchdog Insights</span>
+        <span className="text-sm font-semibold text-foreground">Insights</span>
         <span className="text-sm text-muted-foreground">Log anomalies and error outliers</span>
       </div>
 
-      <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
+      <div className="mt-4 flex touch-pan-x gap-3 overflow-x-auto pb-1">
+        <ErrorDensityInsight hours={hours} />
         {liveSurges.slice(0, 2).map((insight) => (
           <LiveSurgeInsight key={insight.id} insight={insight} intervals={intervals} />
         ))}
-        <ErrorDensityInsight />
         {liveSurges.slice(2).map((insight) => (
           <LiveSurgeInsight key={insight.id} insight={insight} intervals={intervals} />
         ))}

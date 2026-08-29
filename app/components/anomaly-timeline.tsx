@@ -113,7 +113,8 @@ export function AnomalyTimeline({
   const shownLabels = new Set(data.map((_, index) => index).filter((index) => index % 6 === 0))
 
   return (
-    <div className="w-full px-4 pt-4 pb-2">
+    <div className="w-full touch-pan-x overflow-x-auto px-3 pt-4 pb-2 sm:overflow-visible sm:px-4">
+      <div className="min-w-[1600px] sm:min-w-0">
       <ChartContainer config={chartConfig} className="h-[150px] w-full">
         <BarChart data={data} barCategoryGap={1} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
           <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="0" />
@@ -186,6 +187,7 @@ export function AnomalyTimeline({
           </Bar>
         </BarChart>
       </ChartContainer>
+      </div>
     </div>
   )
 }

@@ -233,7 +233,7 @@ export function InsightDetail({
                   {new Date(insight.surgeStartTime ?? insight.peakTime ?? Date.now()).toLocaleString()} - {insight.status}
                 </div>
                 <ChartContainer config={detailConfig} className="h-[190px] w-full">
-                  <BarChart data={detailTimeline.points} barCategoryGap={0} margin={{ top: 24, right: 8, left: 8, bottom: 4 }}>
+                  <BarChart data={detailTimeline.points} barCategoryGap={0} margin={{ top: 24, right: 8, left: 0, bottom: 4 }}>
                     <CartesianGrid vertical={false} stroke="var(--border)" strokeOpacity={0.6} />
                     <XAxis
                       dataKey="time"
@@ -253,7 +253,8 @@ export function InsightDetail({
                       tickFormatter={(value: number) => String(value)}
                       tickLine={false}
                       axisLine={false}
-                      width={34}
+                      width={48}
+                      tickMargin={6}
                       tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
                     />
                     <ReferenceArea

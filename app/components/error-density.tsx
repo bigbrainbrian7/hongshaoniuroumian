@@ -19,13 +19,13 @@ const countFormatter = new Intl.NumberFormat("en", { notation: "compact" })
 
 type DensityPoint = { time: number; label: string; density: number }
 
-function useDensityData() {
+function useDensityData(hours: number) {
   const [intervals, setIntervals] = useState<LogInterval[]>([])
 
   useEffect(() => {
     async function loadIntervals() {
       try {
-        setIntervals(await getLogIntervals(24))
+        setIntervals(await getLogIntervals(hours))
       } catch {
         setIntervals([])
       }
@@ -34,10 +34,10 @@ function useDensityData() {
     void loadIntervals()
     const timer = window.setInterval(loadIntervals, 10_000)
     return () => window.clearInterval(timer)
-  }, [])
+  }, [hours])
 
   return useMemo<DensityPoint[]>(() => {
-    const duration = 24 * 60 * 60 * 1_000
+    const duration = hours * 60 * 60 * 1_000
     const bandwidth = 30 * 60 * 1_000
     const pointCount = 97
     const end = Date.now()
@@ -58,18 +58,18 @@ function useDensityData() {
         density,
       }
     })
-  }, [intervals])
+  }, [hours, intervals])
 }
 
-export function ErrorDensity({ data: suppliedData }: { data?: DensityPoint[] }) {
-  const fetchedData = useDensityData()
+export function ErrorDensity({ data: suppliedData, hours = 24 }: { data?: DensityPoint[]; hours?: number }) {
+  const fetchedData = useDensityData(hours)
   const data = suppliedData ?? fetchedData
   const maximum = Math.max(1, ...data.map((point) => point.density))
 
   return (
     <div className="w-full px-4 pt-4 pb-2">
       <ChartContainer config={chartConfig} className="h-[180px] w-full">
-        <AreaChart data={data} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
+        <AreaChart data={data} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
           <defs>
             <linearGradient id="error-density" x1="0" x2="0" y1="0" y2="1">
               <stop offset="5%" stopColor="var(--color-density)" stopOpacity={0.35} />
@@ -82,14 +82,22 @@ export function ErrorDensity({ data: suppliedData }: { data?: DensityPoint[] }) 
             domain={[0, maximum]}
             tickFormatter={(value) => countFormatter.format(Math.round(Number(value)))}
             tickLine={false}
-            width={38}
+            width={48}
+            tickMargin={6}
           />
           <XAxis
-            dataKey="label"
+            dataKey="time"
+            type="number"
+            domain={["dataMin", "dataMax"]}
             interval={11}
             axisLine={{ stroke: "var(--border)" }}
             tickLine={false}
             tickMargin={8}
+            tickFormatter={(time) => new Date(Number(time)).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })}
           />
           <ChartTooltip
             cursor={{ stroke: "var(--border)" }}
@@ -117,8 +125,8 @@ export function ErrorDensity({ data: suppliedData }: { data?: DensityPoint[] }) 
   )
 }
 
-export function ErrorDensityInsight() {
-  const data = useDensityData()
+export function ErrorDensityInsight({ hours = 24 }: { hours?: number }) {
+  const data = useDensityData(hours)
   const [open, setOpen] = useState(false)
   const maximum = Math.max(1, ...data.map((point) => point.density))
 
@@ -148,13 +156,13 @@ export function ErrorDensityInsight() {
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <div>
                 <p className="text-sm font-semibold text-foreground">Error density</p>
-                <p className="text-xs text-muted-foreground">Smoothed anomalous-log volume over the last 24 hours</p>
+                <p className="text-xs text-muted-foreground">Smoothed anomalous-log volume over the selected time range</p>
               </div>
               <button className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setOpen(false)} type="button" aria-label="Close error density">
                 <X className="size-4" />
               </button>
             </div>
-            <ErrorDensity data={data} />
+            <ErrorDensity data={data} hours={hours} />
           </div>
         </div>
       )}
